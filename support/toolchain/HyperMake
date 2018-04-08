@@ -1,0 +1,28 @@
+---
+format: hypermake.v0
+
+name: cascade-kcl
+description: Amazon Kinesis Client Library in Go
+
+targets:
+  rebuild-toolchain:
+    description: build toolchain image
+    watches:
+      - docker
+    build: docker
+    cache: false
+    tags:
+      - vmware/cascade-kcl-toolchain:latest
+
+  push-toolchain:
+    description: push toolchain image
+    after:
+      - rebuild-toolchain
+    push:
+      - vmware/cascade-toolchain:latest
+
+settings:
+  default-targets:
+    - rebuild-toolchain
+  docker:
+    image: 'vmware/cascade-kcl-toolchain:0.0.0'

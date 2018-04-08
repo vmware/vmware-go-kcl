@@ -1,0 +1,99 @@
+---
+format: hypermake.v0
+
+name: cascade-kinesis-client
+description: Kinesis Client in Go
+
+targets:
+  rebuild-toolchain:
+    description: build toolchain image
+    watches:
+      - support/docker/toolchain
+    build: support/docker/toolchain
+
+  toolchain:
+    description: placeholder for additional toolchain dependencies
+
+  deps:
+    description: setup dependencies
+    after:
+      - 'deps-*'
+
+  gen:
+    description: generate source code
+    after:
+      - 'gen-*'
+
+  build:
+    description: build source code
+    after:
+      - 'build-*'
+
+  test:
+    description: run unit tests
+    after:
+      - deps
+      - gen
+    always: true
+    cmds:
+      - ./support/scripts/test.sh
+
+  ci:
+    description: run CI tests
+    after:
+      - check
+    cmds:
+      - ./support/scripts/ci.sh
+
+  checkfmt:
+    description: check code format
+    after:
+      - toolchain
+    watches:
+      - support/scripts/check.sh
+    always: true
+    cmds:
+      - ./support/scripts/check.sh fmt
+
+  lint:
+    description: run lint to check code
+    after:
+      - toolchain
+    watches:
+      - support/scripts/check.sh
+    always: true
+    cmds:
+      - ./support/scripts/check.sh lint
+
+  scanast:
+    description: run Go AST security scan
+    after:
+      - toolchain
+    watches:
+      - '**/**/*.go'
+      - './support/scripts/check.sh'
+    cmds:
+      - ./support/scripts/check.sh scanast
+
+  check:
+    description: run all code checks
+    after:
+      - checkfmt
+      - lint
+
+  deps-kcl:
+    description: populate vendor packages
+    after:
+      - toolchain
+    watches:
+      - src/vendor/manifest
+    workdir: src
+    cmds:
+      - gvt restore
+
+settings:
+  default-targets:
+    - ci
+  docker:
+    image: 'vmware/cascade-kcl-toolchain:latest'
+    src-volume: /home/cascade-kinesis-client
