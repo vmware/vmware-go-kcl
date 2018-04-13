@@ -211,7 +211,7 @@ type (
 		SkipShardSyncAtWorkerInitializationIfLeasesExist bool
 
 		// The max number of threads in the worker thread pool to getRecords.
-        WorkerThreadPoolSize int
+		WorkerThreadPoolSize int
 	}
 )
 

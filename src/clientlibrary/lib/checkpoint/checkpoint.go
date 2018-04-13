@@ -1,7 +1,7 @@
 package checkpoint
 
 import (
-	. "clientlibrary/types"
+	. "clientlibrary/interfaces"
 )
 
 const (

@@ -19,5 +19,5 @@ func TestConfig(t *testing.T) {
 		WithRegionName("us-west-2")
 
 	assert.Equal(t, "appName", kclConfig.ApplicationName)
-	assert.Equal(t, "500", kclConfig.FailoverTimeMillis)
+	assert.Equal(t, 500, kclConfig.FailoverTimeMillis)
 }

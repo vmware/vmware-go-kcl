@@ -17,11 +17,11 @@ func NewKinesisClientLibConfig(applicationName, streamName, workerID string) *Ki
 
 	// populate the KCL configuration with default values
 	return &KinesisClientLibConfiguration{
-		ApplicationName:                          applicationName,
-		TableName:                                applicationName,
-		StreamName:                               streamName,
-		WorkerID:                                 workerID,
-		KinesisEndpoint:                          "",
+		ApplicationName:                           applicationName,
+		TableName:                                 applicationName,
+		StreamName:                                streamName,
+		WorkerID:                                  workerID,
+		KinesisEndpoint:                           "",
 		InitialPositionInStream:                   DEFAULT_INITIAL_POSITION_IN_STREAM,
 		InitialPositionInStreamExtended:           *newInitialPosition(DEFAULT_INITIAL_POSITION_IN_STREAM),
 		FailoverTimeMillis:                        DEFAULT_FAILOVER_TIME_MILLIS,
@@ -29,12 +29,12 @@ func NewKinesisClientLibConfig(applicationName, streamName, workerID string) *Ki
 		IdleTimeBetweenReadsInMillis:              DEFAULT_IDLETIME_BETWEEN_READS_MILLIS,
 		CallProcessRecordsEvenForEmptyRecordList:  DEFAULT_DONT_CALL_PROCESS_RECORDS_FOR_EMPTY_RECORD_LIST,
 		ParentShardPollIntervalMillis:             DEFAULT_PARENT_SHARD_POLL_INTERVAL_MILLIS,
-		ShardSyncIntervalMillis:                          DEFAULT_SHARD_SYNC_INTERVAL_MILLIS,
-		CleanupTerminatedShardsBeforeExpiry:              DEFAULT_CLEANUP_LEASES_UPON_SHARDS_COMPLETION,
-		TaskBackoffTimeMillis:                            DEFAULT_TASK_BACKOFF_TIME_MILLIS,
-		MetricsBufferTimeMillis:                          DEFAULT_METRICS_BUFFER_TIME_MILLIS,
-		MetricsMaxQueueSize:                              DEFAULT_METRICS_MAX_QUEUE_SIZE,
-		ValidateSequenceNumberBeforeCheckpointing:        DEFAULT_VALIDATE_SEQUENCE_NUMBER_BEFORE_CHECKPOINTING,
+		ShardSyncIntervalMillis:                   DEFAULT_SHARD_SYNC_INTERVAL_MILLIS,
+		CleanupTerminatedShardsBeforeExpiry:       DEFAULT_CLEANUP_LEASES_UPON_SHARDS_COMPLETION,
+		TaskBackoffTimeMillis:                     DEFAULT_TASK_BACKOFF_TIME_MILLIS,
+		MetricsBufferTimeMillis:                   DEFAULT_METRICS_BUFFER_TIME_MILLIS,
+		MetricsMaxQueueSize:                       DEFAULT_METRICS_MAX_QUEUE_SIZE,
+		ValidateSequenceNumberBeforeCheckpointing: DEFAULT_VALIDATE_SEQUENCE_NUMBER_BEFORE_CHECKPOINTING,
 		RegionName:                                       "",
 		ShutdownGraceMillis:                              DEFAULT_SHUTDOWN_GRACE_MILLIS,
 		MaxLeasesForWorker:                               DEFAULT_MAX_LEASES_FOR_WORKER,
@@ -42,7 +42,7 @@ func NewKinesisClientLibConfig(applicationName, streamName, workerID string) *Ki
 		InitialLeaseTableReadCapacity:                    DEFAULT_INITIAL_LEASE_TABLE_READ_CAPACITY,
 		InitialLeaseTableWriteCapacity:                   DEFAULT_INITIAL_LEASE_TABLE_WRITE_CAPACITY,
 		SkipShardSyncAtWorkerInitializationIfLeasesExist: DEFAULT_SKIP_SHARD_SYNC_AT_STARTUP_IF_LEASES_EXIST,
-        WorkerThreadPoolSize: 1,
+		WorkerThreadPoolSize:                             1,
 	}
 }
 
@@ -147,8 +147,7 @@ func (c *KinesisClientLibConfiguration) WithRegionName(regionName string) *Kines
 
 // WithWorkerThreadPoolSize configures worker thread pool size
 func (c *KinesisClientLibConfiguration) WithWorkerThreadPoolSize(n int) *KinesisClientLibConfiguration {
-    checkIsValuePositive("WorkerThreadPoolSize", n)
-    c.WorkerThreadPoolSize = n
-    return c
+	checkIsValuePositive("WorkerThreadPoolSize", n)
+	c.WorkerThreadPoolSize = n
+	return c
 }
-

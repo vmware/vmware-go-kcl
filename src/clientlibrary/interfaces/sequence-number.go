@@ -1,4 +1,4 @@
-package types
+package interfaces
 
 // ExtendedSequenceNumber represents a two-part sequence number for records aggregated by the Kinesis Producer Library.
 //

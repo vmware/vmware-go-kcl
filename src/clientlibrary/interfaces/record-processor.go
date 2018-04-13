@@ -1,9 +1,5 @@
 package interfaces
 
-import (
-	. "clientlibrary/types"
-)
-
 // IRecordProcessor is the interface for some callback functions invoked by KCL will
 // The main task of using KCL is to provide implementation on IRecordProcessor interface.
 // Note: This is exactly the same interface as Amazon KCL IRecordProcessor v2

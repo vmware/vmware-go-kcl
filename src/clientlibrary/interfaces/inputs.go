@@ -1,11 +1,9 @@
-package types
+package interfaces
 
 import (
 	"time"
 
 	ks "github.com/aws/aws-sdk-go/service/kinesis"
-
-	. "clientlibrary/interfaces"
 )
 
 const (

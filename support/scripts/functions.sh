@@ -14,6 +14,7 @@ local_go_pkgs() {
         grep -Fv '/tmp/' | \
         grep -Fv '/run/' | \
         grep -Fv '/tests/' | \
+        sed -r 's|(.+)/[^/]+\.go$|\1|g' | \
         sort -u
 }
 

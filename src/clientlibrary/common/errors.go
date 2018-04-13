@@ -35,11 +35,11 @@ const (
 	LeasingProvisionedThroughputError ErrorCode = 41203
 
 	// Misc Errors 41300 - 41400
-    // NotImplemented
-    KinesisClientLibNotImplemented ErrorCode = 41301
+	// NotImplemented
+	KinesisClientLibNotImplemented ErrorCode = 41301
 
-    // Error indicates passing illegal or inappropriate argument
-    IllegalArgumentError ErrorCode = 41302
+	// Error indicates passing illegal or inappropriate argument
+	IllegalArgumentError ErrorCode = 41302
 )
 
 var errorMap = map[ErrorCode]ClientLibraryError{

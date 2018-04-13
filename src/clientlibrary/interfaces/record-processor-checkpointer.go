@@ -2,8 +2,6 @@ package interfaces
 
 import (
 	ks "github.com/aws/aws-sdk-go/service/kinesis"
-
-	. "clientlibrary/types"
 )
 
 type (

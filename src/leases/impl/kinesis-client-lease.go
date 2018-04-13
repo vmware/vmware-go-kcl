@@ -1,7 +1,7 @@
 package impl
 
 import (
-	. "clientlibrary/types"
+	. "clientlibrary/interfaces"
 )
 
 // KinesisClientLease is a Lease subclass containing KinesisClientLibrary related fields for checkpoints.
