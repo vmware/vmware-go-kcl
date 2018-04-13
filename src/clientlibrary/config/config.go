@@ -14,7 +14,7 @@ const (
 	LATEST = InitialPositionInStream(1)
 	// TRIM_HORIZON start from the oldest available data record
 	TRIM_HORIZON = LATEST + 1
-	// AT_TIMESTAMP start from the record at or after the specified server-side timestamp.
+	// AT_TIMESTAMP start from the record at or after the specified server-side Timestamp.
 	AT_TIMESTAMP = TRIM_HORIZON + 1
 
 	// The location in the shard from which the KinesisClientLibrary will start fetching records from
@@ -99,14 +99,14 @@ const (
 )
 
 type (
-	// InitialPositionInStream Used to specify the position in the stream where a new application should start from
+	// InitialPositionInStream Used to specify the Position in the stream where a new application should start from
 	// This is used during initial application bootstrap (when a checkpoint doesn't exist for a shard or its parents)
 	InitialPositionInStream int
 
-	// Class that houses the entities needed to specify the position in the stream from where a new application should
+	// Class that houses the entities needed to specify the Position in the stream from where a new application should
 	// start.
 	InitialPositionInStreamExtended struct {
-		position InitialPositionInStream
+		Position InitialPositionInStream
 
 		// The time stamp of the data record from which to start reading. Used with
 		// shard iterator type AT_TIMESTAMP. A time stamp is the Unix epoch date with
@@ -115,100 +115,103 @@ type (
 		// iterator returned is for the next (later) record. If the time stamp is older
 		// than the current trim horizon, the iterator returned is for the oldest untrimmed
 		// data record (TRIM_HORIZON).
-		timestamp *time.Time `type:"timestamp" timestampFormat:"unix"`
+		Timestamp *time.Time `type:"Timestamp" timestampFormat:"unix"`
 	}
 
 	// Configuration for the Kinesis Client Library.
 	KinesisClientLibConfiguration struct {
-		// applicationName is name of application. Kinesis allows multiple applications to consume the same stream.
-		applicationName string
+		// ApplicationName is name of application. Kinesis allows multiple applications to consume the same stream.
+		ApplicationName string
 
-		// tableName is name of the dynamo db table for managing kinesis stream default to applicationName
-		tableName string
+		// TableName is name of the dynamo db table for managing kinesis stream default to ApplicationName
+		TableName string
 
-		// streamName is the name of Kinesis stream
-		streamName string
+		// StreamName is the name of Kinesis stream
+		StreamName string
 
-		// workerID used to distinguish different workers/processes of a Kinesis application
-		workerID string
+		// WorkerID used to distinguish different workers/processes of a Kinesis application
+		WorkerID string
 
-		// kinesisEndpoint endpoint
-		kinesisEndpoint string
+		// KinesisEndpoint endpoint
+		KinesisEndpoint string
 
-		// dynamoDB endpoint
-		dynamoDBEndpoint string
+		// DynamoDB endpoint
+		DynamoDBEndpoint string
 
-		// initialPositionInStream specifies the position in the stream where a new application should start from
-		initialPositionInStream InitialPositionInStream
+		// InitialPositionInStream specifies the Position in the stream where a new application should start from
+		InitialPositionInStream InitialPositionInStream
 
-		// initialPositionInStreamExtended provides actual AT_TMESTAMP value
-		initialPositionInStreamExtended InitialPositionInStreamExtended
+		// InitialPositionInStreamExtended provides actual AT_TMESTAMP value
+		InitialPositionInStreamExtended InitialPositionInStreamExtended
 
 		// credentials to access Kinesis/Dynamo/CloudWatch: https://docs.aws.amazon.com/sdk-for-go/api/aws/credentials/
 		// Note: No need to configure here. Use NewEnvCredentials for testing and EC2RoleProvider for production
 
-		// failoverTimeMillis Lease duration (leases not renewed within this period will be claimed by others)
-		failoverTimeMillis int
+		// FailoverTimeMillis Lease duration (leases not renewed within this period will be claimed by others)
+		FailoverTimeMillis int
 
-		/// maxRecords Max records to read per Kinesis getRecords() call
-		maxRecords int
+		/// MaxRecords Max records to read per Kinesis getRecords() call
+		MaxRecords int
 
-		// idleTimeBetweenReadsInMillis Idle time between calls to fetch data from Kinesis
-		idleTimeBetweenReadsInMillis int
+		// IdleTimeBetweenReadsInMillis Idle time between calls to fetch data from Kinesis
+		IdleTimeBetweenReadsInMillis int
 
-		// callProcessRecordsEvenForEmptyRecordList Call the IRecordProcessor::processRecords() API even if
+		// CallProcessRecordsEvenForEmptyRecordList Call the IRecordProcessor::processRecords() API even if
 		// GetRecords returned an empty record list.
-		callProcessRecordsEvenForEmptyRecordList bool
+		CallProcessRecordsEvenForEmptyRecordList bool
 
-		// parentShardPollIntervalMillis Wait for this long between polls to check if parent shards are done
-		parentShardPollIntervalMillis int
+		// ParentShardPollIntervalMillis Wait for this long between polls to check if parent shards are done
+		ParentShardPollIntervalMillis int
 
-		// shardSyncIntervalMillis Time between tasks to sync leases and Kinesis shards
-		shardSyncIntervalMillis int
+		// ShardSyncIntervalMillis Time between tasks to sync leases and Kinesis shards
+		ShardSyncIntervalMillis int
 
-		// cleanupTerminatedShardsBeforeExpiry Clean up shards we've finished processing (don't wait for expiration)
-		cleanupTerminatedShardsBeforeExpiry bool
+		// CleanupTerminatedShardsBeforeExpiry Clean up shards we've finished processing (don't wait for expiration)
+		CleanupTerminatedShardsBeforeExpiry bool
 
 		// kinesisClientConfig Client Configuration used by Kinesis client
 		// dynamoDBClientConfig Client Configuration used by DynamoDB client
 		// cloudWatchClientConfig Client Configuration used by CloudWatch client
 		// Note: we will use default client provided by AWS SDK
 
-		// taskBackoffTimeMillis Backoff period when tasks encounter an exception
-		taskBackoffTimeMillis int
+		// TaskBackoffTimeMillis Backoff period when tasks encounter an exception
+		TaskBackoffTimeMillis int
 
-		// metricsBufferTimeMillis Metrics are buffered for at most this long before publishing to CloudWatch
-		metricsBufferTimeMillis int
+		// MetricsBufferTimeMillis Metrics are buffered for at most this long before publishing to CloudWatch
+		MetricsBufferTimeMillis int
 
-		// metricsMaxQueueSize Max number of metrics to buffer before publishing to CloudWatch
-		metricsMaxQueueSize int
+		// MetricsMaxQueueSize Max number of metrics to buffer before publishing to CloudWatch
+		MetricsMaxQueueSize int
 
-		// validateSequenceNumberBeforeCheckpointing whether KCL should validate client provided sequence numbers
-		validateSequenceNumberBeforeCheckpointing bool
+		// ValidateSequenceNumberBeforeCheckpointing whether KCL should validate client provided sequence numbers
+		ValidateSequenceNumberBeforeCheckpointing bool
 
-		// regionName The region name for the service
-		regionName string
+		// RegionName The region name for the service
+		RegionName string
 
-		// shutdownGraceMillis The number of milliseconds before graceful shutdown terminates forcefully
-		shutdownGraceMillis int
+		// ShutdownGraceMillis The number of milliseconds before graceful shutdown terminates forcefully
+		ShutdownGraceMillis int
 
 		// Operation parameters
 
 		// Max leases this Worker can handle at a time
-		maxLeasesForWorker int
+		MaxLeasesForWorker int
 
 		// Max leases to steal at one time (for load balancing)
-		maxLeasesToStealAtOneTime int
+		MaxLeasesToStealAtOneTime int
 
 		// Read capacity to provision when creating the lease table (dynamoDB).
-		initialLeaseTableReadCapacity int
+		InitialLeaseTableReadCapacity int
 
 		// Write capacity to provision when creating the lease table.
-		initialLeaseTableWriteCapacity int
+		InitialLeaseTableWriteCapacity int
 
 		// Worker should skip syncing shards and leases at startup if leases are present
 		// This is useful for optimizing deployments to large fleets working on a stable stream.
-		skipShardSyncAtWorkerInitializationIfLeasesExist bool
+		SkipShardSyncAtWorkerInitializationIfLeasesExist bool
+
+		// The max number of threads in the worker thread pool to getRecords.
+        WorkerThreadPoolSize int
 	}
 )
 

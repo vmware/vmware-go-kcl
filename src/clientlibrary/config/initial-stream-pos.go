@@ -5,9 +5,9 @@ import (
 )
 
 func newInitialPositionAtTimestamp(timestamp *time.Time) *InitialPositionInStreamExtended {
-	return &InitialPositionInStreamExtended{position: AT_TIMESTAMP, timestamp: timestamp}
+	return &InitialPositionInStreamExtended{Position: AT_TIMESTAMP, Timestamp: timestamp}
 }
 
 func newInitialPosition(position InitialPositionInStream) *InitialPositionInStreamExtended {
-	return &InitialPositionInStreamExtended{position: position, timestamp: nil}
+	return &InitialPositionInStreamExtended{Position: position, Timestamp: nil}
 }

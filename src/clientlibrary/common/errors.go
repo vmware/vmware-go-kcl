@@ -10,35 +10,36 @@ type ErrorCode int32
 
 // pre-defined error codes
 const (
-	// System Wide      20000 - 20199
-	KinesisClientLibError ErrorCode = 20000
+	// System Wide      41000 - 42000
+	KinesisClientLibError ErrorCode = 41000
 
-	// KinesisClientLibrary Retryable Errors 20001 - 20099
-	KinesisClientLibRetryableError ErrorCode = 20001
+	// KinesisClientLibrary Retryable Errors 41001 - 41100
+	KinesisClientLibRetryableError ErrorCode = 41001
 
-	KinesisClientLibIOError         ErrorCode = 20002
-	BlockedOnParentShardError       ErrorCode = 20003
-	KinesisClientLibDependencyError ErrorCode = 20004
-	ThrottlingError                 ErrorCode = 20005
+	KinesisClientLibIOError         ErrorCode = 41002
+	BlockedOnParentShardError       ErrorCode = 41003
+	KinesisClientLibDependencyError ErrorCode = 41004
+	ThrottlingError                 ErrorCode = 41005
 
-	// KinesisClientLibrary NonRetryable Errors 20100 - 20149
-	KinesisClientLibNonRetryableException ErrorCode = 20000
+	// KinesisClientLibrary NonRetryable Errors 41100 - 41200
+	KinesisClientLibNonRetryableException ErrorCode = 41100
 
-	InvalidStateError ErrorCode = 20101
-	ShutdownError     ErrorCode = 20102
+	InvalidStateError ErrorCode = 41101
+	ShutdownError     ErrorCode = 41102
 
-	// Kinesis Lease Errors 20150 - 20199
-	LeasingError ErrorCode = 20150
+	// Kinesis Lease Errors 41200 - 41300
+	LeasingError ErrorCode = 41200
 
-	LeasingInvalidStateError          ErrorCode = 20151
-	LeasingDependencyError            ErrorCode = 20152
-	LeasingProvisionedThroughputError ErrorCode = 20153
+	LeasingInvalidStateError          ErrorCode = 41201
+	LeasingDependencyError            ErrorCode = 41202
+	LeasingProvisionedThroughputError ErrorCode = 41203
 
-	// Error indicates passing illegal or inappropriate argument
-	IllegalArgumentError ErrorCode = 20198
+	// Misc Errors 41300 - 41400
+    // NotImplemented
+    KinesisClientLibNotImplemented ErrorCode = 41301
 
-	// NotImplemented
-	KinesisClientLibNotImplemented ErrorCode = 20199
+    // Error indicates passing illegal or inappropriate argument
+    IllegalArgumentError ErrorCode = 41302
 )
 
 var errorMap = map[ErrorCode]ClientLibraryError{

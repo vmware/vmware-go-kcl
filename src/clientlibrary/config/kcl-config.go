@@ -7,9 +7,9 @@ import (
 
 // NewKinesisClientLibConfig to create a default KinesisClientLibConfiguration based on the required fields.
 func NewKinesisClientLibConfig(applicationName, streamName, workerID string) *KinesisClientLibConfiguration {
-	checkIsValueNotEmpty("applicationName", applicationName)
-	checkIsValueNotEmpty("streamName", streamName)
-	checkIsValueNotEmpty("applicationName", applicationName)
+	checkIsValueNotEmpty("ApplicationName", applicationName)
+	checkIsValueNotEmpty("StreamName", streamName)
+	checkIsValueNotEmpty("ApplicationName", applicationName)
 
 	if empty(workerID) {
 		workerID = utils.MustNewUUID()
@@ -17,72 +17,73 @@ func NewKinesisClientLibConfig(applicationName, streamName, workerID string) *Ki
 
 	// populate the KCL configuration with default values
 	return &KinesisClientLibConfiguration{
-		applicationName:                           applicationName,
-		tableName:                                 applicationName,
-		streamName:                                streamName,
-		workerID:                                  workerID,
-		kinesisEndpoint:                           "",
-		initialPositionInStream:                   DEFAULT_INITIAL_POSITION_IN_STREAM,
-		initialPositionInStreamExtended:           *newInitialPosition(DEFAULT_INITIAL_POSITION_IN_STREAM),
-		failoverTimeMillis:                        DEFAULT_FAILOVER_TIME_MILLIS,
-		maxRecords:                                DEFAULT_MAX_RECORDS,
-		idleTimeBetweenReadsInMillis:              DEFAULT_IDLETIME_BETWEEN_READS_MILLIS,
-		callProcessRecordsEvenForEmptyRecordList:  DEFAULT_DONT_CALL_PROCESS_RECORDS_FOR_EMPTY_RECORD_LIST,
-		parentShardPollIntervalMillis:             DEFAULT_PARENT_SHARD_POLL_INTERVAL_MILLIS,
-		shardSyncIntervalMillis:                   DEFAULT_SHARD_SYNC_INTERVAL_MILLIS,
-		cleanupTerminatedShardsBeforeExpiry:       DEFAULT_CLEANUP_LEASES_UPON_SHARDS_COMPLETION,
-		taskBackoffTimeMillis:                     DEFAULT_TASK_BACKOFF_TIME_MILLIS,
-		metricsBufferTimeMillis:                   DEFAULT_METRICS_BUFFER_TIME_MILLIS,
-		metricsMaxQueueSize:                       DEFAULT_METRICS_MAX_QUEUE_SIZE,
-		validateSequenceNumberBeforeCheckpointing: DEFAULT_VALIDATE_SEQUENCE_NUMBER_BEFORE_CHECKPOINTING,
-		regionName:                                       "",
-		shutdownGraceMillis:                              DEFAULT_SHUTDOWN_GRACE_MILLIS,
-		maxLeasesForWorker:                               DEFAULT_MAX_LEASES_FOR_WORKER,
-		maxLeasesToStealAtOneTime:                        DEFAULT_MAX_LEASES_TO_STEAL_AT_ONE_TIME,
-		initialLeaseTableReadCapacity:                    DEFAULT_INITIAL_LEASE_TABLE_READ_CAPACITY,
-		initialLeaseTableWriteCapacity:                   DEFAULT_INITIAL_LEASE_TABLE_WRITE_CAPACITY,
-		skipShardSyncAtWorkerInitializationIfLeasesExist: DEFAULT_SKIP_SHARD_SYNC_AT_STARTUP_IF_LEASES_EXIST,
+		ApplicationName:                          applicationName,
+		TableName:                                applicationName,
+		StreamName:                               streamName,
+		WorkerID:                                 workerID,
+		KinesisEndpoint:                          "",
+		InitialPositionInStream:                   DEFAULT_INITIAL_POSITION_IN_STREAM,
+		InitialPositionInStreamExtended:           *newInitialPosition(DEFAULT_INITIAL_POSITION_IN_STREAM),
+		FailoverTimeMillis:                        DEFAULT_FAILOVER_TIME_MILLIS,
+		MaxRecords:                                DEFAULT_MAX_RECORDS,
+		IdleTimeBetweenReadsInMillis:              DEFAULT_IDLETIME_BETWEEN_READS_MILLIS,
+		CallProcessRecordsEvenForEmptyRecordList:  DEFAULT_DONT_CALL_PROCESS_RECORDS_FOR_EMPTY_RECORD_LIST,
+		ParentShardPollIntervalMillis:             DEFAULT_PARENT_SHARD_POLL_INTERVAL_MILLIS,
+		ShardSyncIntervalMillis:                          DEFAULT_SHARD_SYNC_INTERVAL_MILLIS,
+		CleanupTerminatedShardsBeforeExpiry:              DEFAULT_CLEANUP_LEASES_UPON_SHARDS_COMPLETION,
+		TaskBackoffTimeMillis:                            DEFAULT_TASK_BACKOFF_TIME_MILLIS,
+		MetricsBufferTimeMillis:                          DEFAULT_METRICS_BUFFER_TIME_MILLIS,
+		MetricsMaxQueueSize:                              DEFAULT_METRICS_MAX_QUEUE_SIZE,
+		ValidateSequenceNumberBeforeCheckpointing:        DEFAULT_VALIDATE_SEQUENCE_NUMBER_BEFORE_CHECKPOINTING,
+		RegionName:                                       "",
+		ShutdownGraceMillis:                              DEFAULT_SHUTDOWN_GRACE_MILLIS,
+		MaxLeasesForWorker:                               DEFAULT_MAX_LEASES_FOR_WORKER,
+		MaxLeasesToStealAtOneTime:                        DEFAULT_MAX_LEASES_TO_STEAL_AT_ONE_TIME,
+		InitialLeaseTableReadCapacity:                    DEFAULT_INITIAL_LEASE_TABLE_READ_CAPACITY,
+		InitialLeaseTableWriteCapacity:                   DEFAULT_INITIAL_LEASE_TABLE_WRITE_CAPACITY,
+		SkipShardSyncAtWorkerInitializationIfLeasesExist: DEFAULT_SKIP_SHARD_SYNC_AT_STARTUP_IF_LEASES_EXIST,
+        WorkerThreadPoolSize: 1,
 	}
 }
 
 // WithTableName to provide alternative lease table in DynamoDB
 func (c *KinesisClientLibConfiguration) WithTableName(tableName string) *KinesisClientLibConfiguration {
-	c.tableName = tableName
+	c.TableName = tableName
 	return c
 }
 
 func (c *KinesisClientLibConfiguration) WithKinesisEndpoint(kinesisEndpoint string) *KinesisClientLibConfiguration {
-	c.kinesisEndpoint = kinesisEndpoint
+	c.KinesisEndpoint = kinesisEndpoint
 	return c
 }
 
 func (c *KinesisClientLibConfiguration) WithInitialPositionInStream(initialPositionInStream InitialPositionInStream) *KinesisClientLibConfiguration {
-	c.initialPositionInStream = initialPositionInStream
-	c.initialPositionInStreamExtended = *newInitialPosition(initialPositionInStream)
+	c.InitialPositionInStream = initialPositionInStream
+	c.InitialPositionInStreamExtended = *newInitialPosition(initialPositionInStream)
 	return c
 }
 
 func (c *KinesisClientLibConfiguration) WithTimestampAtInitialPositionInStream(timestamp *time.Time) *KinesisClientLibConfiguration {
-	c.initialPositionInStream = AT_TIMESTAMP
-	c.initialPositionInStreamExtended = *newInitialPositionAtTimestamp(timestamp)
+	c.InitialPositionInStream = AT_TIMESTAMP
+	c.InitialPositionInStreamExtended = *newInitialPositionAtTimestamp(timestamp)
 	return c
 }
 
 func (c *KinesisClientLibConfiguration) WithFailoverTimeMillis(failoverTimeMillis int) *KinesisClientLibConfiguration {
 	checkIsValuePositive("FailoverTimeMillis", failoverTimeMillis)
-	c.failoverTimeMillis = failoverTimeMillis
+	c.FailoverTimeMillis = failoverTimeMillis
 	return c
 }
 
 func (c *KinesisClientLibConfiguration) WithShardSyncIntervalMillis(shardSyncIntervalMillis int) *KinesisClientLibConfiguration {
 	checkIsValuePositive("ShardSyncIntervalMillis", shardSyncIntervalMillis)
-	c.shardSyncIntervalMillis = shardSyncIntervalMillis
+	c.ShardSyncIntervalMillis = shardSyncIntervalMillis
 	return c
 }
 
 func (c *KinesisClientLibConfiguration) WithMaxRecords(maxRecords int) *KinesisClientLibConfiguration {
 	checkIsValuePositive("MaxRecords", maxRecords)
-	c.maxRecords = maxRecords
+	c.MaxRecords = maxRecords
 	return c
 }
 
@@ -102,46 +103,52 @@ func (c *KinesisClientLibConfiguration) WithMaxRecords(maxRecords int) *KinesisC
  * Metric: GetRecords.MillisBehindLatest</a>
  * </p>
  *
- * @param idleTimeBetweenReadsInMillis
+ * @param IdleTimeBetweenReadsInMillis
  *            how long to sleep between GetRecords calls when no records are returned.
  * @return KinesisClientLibConfiguration
  */
 func (c *KinesisClientLibConfiguration) WithIdleTimeBetweenReadsInMillis(idleTimeBetweenReadsInMillis int) *KinesisClientLibConfiguration {
 	checkIsValuePositive("IdleTimeBetweenReadsInMillis", idleTimeBetweenReadsInMillis)
-	c.idleTimeBetweenReadsInMillis = idleTimeBetweenReadsInMillis
+	c.IdleTimeBetweenReadsInMillis = idleTimeBetweenReadsInMillis
 	return c
 }
 
 func (c *KinesisClientLibConfiguration) WithCallProcessRecordsEvenForEmptyRecordList(callProcessRecordsEvenForEmptyRecordList bool) *KinesisClientLibConfiguration {
-	c.callProcessRecordsEvenForEmptyRecordList = callProcessRecordsEvenForEmptyRecordList
+	c.CallProcessRecordsEvenForEmptyRecordList = callProcessRecordsEvenForEmptyRecordList
 	return c
 }
 
 func (c *KinesisClientLibConfiguration) WithTaskBackoffTimeMillis(taskBackoffTimeMillis int) *KinesisClientLibConfiguration {
-	checkIsValuePositive("taskBackoffTimeMillis", taskBackoffTimeMillis)
-	c.taskBackoffTimeMillis = taskBackoffTimeMillis
+	checkIsValuePositive("TaskBackoffTimeMillis", taskBackoffTimeMillis)
+	c.TaskBackoffTimeMillis = taskBackoffTimeMillis
 	return c
 }
 
 // WithMetricsBufferTimeMillis configures Metrics are buffered for at most this long before publishing to CloudWatch
 func (c *KinesisClientLibConfiguration) WithMetricsBufferTimeMillis(metricsBufferTimeMillis int) *KinesisClientLibConfiguration {
-	checkIsValuePositive("metricsBufferTimeMillis", metricsBufferTimeMillis)
-	c.metricsBufferTimeMillis = metricsBufferTimeMillis
+	checkIsValuePositive("MetricsBufferTimeMillis", metricsBufferTimeMillis)
+	c.MetricsBufferTimeMillis = metricsBufferTimeMillis
 	return c
 }
 
 // WithMetricsMaxQueueSize configures Max number of metrics to buffer before publishing to CloudWatch
 func (c *KinesisClientLibConfiguration) WithMetricsMaxQueueSize(metricsMaxQueueSize int) *KinesisClientLibConfiguration {
-	checkIsValuePositive("metricsMaxQueueSize", metricsMaxQueueSize)
-	c.metricsMaxQueueSize = metricsMaxQueueSize
+	checkIsValuePositive("MetricsMaxQueueSize", metricsMaxQueueSize)
+	c.MetricsMaxQueueSize = metricsMaxQueueSize
 	return c
 }
 
 // WithRegionName configures region for the stream
 func (c *KinesisClientLibConfiguration) WithRegionName(regionName string) *KinesisClientLibConfiguration {
-	checkIsValueNotEmpty("regionName", regionName)
-	c.regionName = regionName
+	checkIsValueNotEmpty("RegionName", regionName)
+	c.RegionName = regionName
 	return c
 }
 
-// Getters
+// WithWorkerThreadPoolSize configures worker thread pool size
+func (c *KinesisClientLibConfiguration) WithWorkerThreadPoolSize(n int) *KinesisClientLibConfiguration {
+    checkIsValuePositive("WorkerThreadPoolSize", n)
+    c.WorkerThreadPoolSize = n
+    return c
+}
+
