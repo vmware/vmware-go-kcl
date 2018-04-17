@@ -6,10 +6,10 @@ import (
 )
 
 // NewKinesisClientLibConfig to create a default KinesisClientLibConfiguration based on the required fields.
-func NewKinesisClientLibConfig(applicationName, streamName, workerID string) *KinesisClientLibConfiguration {
+func NewKinesisClientLibConfig(applicationName, streamName, regionName, workerID string) *KinesisClientLibConfiguration {
 	checkIsValueNotEmpty("ApplicationName", applicationName)
 	checkIsValueNotEmpty("StreamName", streamName)
-	checkIsValueNotEmpty("ApplicationName", applicationName)
+	checkIsValueNotEmpty("RegionName", regionName)
 
 	if empty(workerID) {
 		workerID = utils.MustNewUUID()
@@ -17,43 +17,36 @@ func NewKinesisClientLibConfig(applicationName, streamName, workerID string) *Ki
 
 	// populate the KCL configuration with default values
 	return &KinesisClientLibConfiguration{
-		ApplicationName:                           applicationName,
-		TableName:                                 applicationName,
-		StreamName:                                streamName,
-		WorkerID:                                  workerID,
-		KinesisEndpoint:                           "",
-		InitialPositionInStream:                   DEFAULT_INITIAL_POSITION_IN_STREAM,
-		InitialPositionInStreamExtended:           *newInitialPosition(DEFAULT_INITIAL_POSITION_IN_STREAM),
-		FailoverTimeMillis:                        DEFAULT_FAILOVER_TIME_MILLIS,
-		MaxRecords:                                DEFAULT_MAX_RECORDS,
-		IdleTimeBetweenReadsInMillis:              DEFAULT_IDLETIME_BETWEEN_READS_MILLIS,
-		CallProcessRecordsEvenForEmptyRecordList:  DEFAULT_DONT_CALL_PROCESS_RECORDS_FOR_EMPTY_RECORD_LIST,
-		ParentShardPollIntervalMillis:             DEFAULT_PARENT_SHARD_POLL_INTERVAL_MILLIS,
-		ShardSyncIntervalMillis:                   DEFAULT_SHARD_SYNC_INTERVAL_MILLIS,
-		CleanupTerminatedShardsBeforeExpiry:       DEFAULT_CLEANUP_LEASES_UPON_SHARDS_COMPLETION,
-		TaskBackoffTimeMillis:                     DEFAULT_TASK_BACKOFF_TIME_MILLIS,
-		MetricsBufferTimeMillis:                   DEFAULT_METRICS_BUFFER_TIME_MILLIS,
-		MetricsMaxQueueSize:                       DEFAULT_METRICS_MAX_QUEUE_SIZE,
-		ValidateSequenceNumberBeforeCheckpointing: DEFAULT_VALIDATE_SEQUENCE_NUMBER_BEFORE_CHECKPOINTING,
-		RegionName:                                       "",
+		ApplicationName:                                  applicationName,
+		TableName:                                        applicationName,
+		StreamName:                                       streamName,
+		RegionName:                                       regionName,
+		WorkerID:                                         workerID,
+		InitialPositionInStream:                          DEFAULT_INITIAL_POSITION_IN_STREAM,
+		InitialPositionInStreamExtended:                  *newInitialPosition(DEFAULT_INITIAL_POSITION_IN_STREAM),
+		FailoverTimeMillis:                               DEFAULT_FAILOVER_TIME_MILLIS,
+		MaxRecords:                                       DEFAULT_MAX_RECORDS,
+		IdleTimeBetweenReadsInMillis:                     DEFAULT_IDLETIME_BETWEEN_READS_MILLIS,
+		CallProcessRecordsEvenForEmptyRecordList:         DEFAULT_DONT_CALL_PROCESS_RECORDS_FOR_EMPTY_RECORD_LIST,
+		ParentShardPollIntervalMillis:                    DEFAULT_PARENT_SHARD_POLL_INTERVAL_MILLIS,
+		ShardSyncIntervalMillis:                          DEFAULT_SHARD_SYNC_INTERVAL_MILLIS,
+		CleanupTerminatedShardsBeforeExpiry:              DEFAULT_CLEANUP_LEASES_UPON_SHARDS_COMPLETION,
+		TaskBackoffTimeMillis:                            DEFAULT_TASK_BACKOFF_TIME_MILLIS,
+		MetricsBufferTimeMillis:                          DEFAULT_METRICS_BUFFER_TIME_MILLIS,
+		MetricsMaxQueueSize:                              DEFAULT_METRICS_MAX_QUEUE_SIZE,
+		ValidateSequenceNumberBeforeCheckpointing:        DEFAULT_VALIDATE_SEQUENCE_NUMBER_BEFORE_CHECKPOINTING,
 		ShutdownGraceMillis:                              DEFAULT_SHUTDOWN_GRACE_MILLIS,
 		MaxLeasesForWorker:                               DEFAULT_MAX_LEASES_FOR_WORKER,
 		MaxLeasesToStealAtOneTime:                        DEFAULT_MAX_LEASES_TO_STEAL_AT_ONE_TIME,
 		InitialLeaseTableReadCapacity:                    DEFAULT_INITIAL_LEASE_TABLE_READ_CAPACITY,
 		InitialLeaseTableWriteCapacity:                   DEFAULT_INITIAL_LEASE_TABLE_WRITE_CAPACITY,
 		SkipShardSyncAtWorkerInitializationIfLeasesExist: DEFAULT_SKIP_SHARD_SYNC_AT_STARTUP_IF_LEASES_EXIST,
-		WorkerThreadPoolSize:                             1,
 	}
 }
 
 // WithTableName to provide alternative lease table in DynamoDB
 func (c *KinesisClientLibConfiguration) WithTableName(tableName string) *KinesisClientLibConfiguration {
 	c.TableName = tableName
-	return c
-}
-
-func (c *KinesisClientLibConfiguration) WithKinesisEndpoint(kinesisEndpoint string) *KinesisClientLibConfiguration {
-	c.KinesisEndpoint = kinesisEndpoint
 	return c
 }
 
@@ -84,6 +77,14 @@ func (c *KinesisClientLibConfiguration) WithShardSyncIntervalMillis(shardSyncInt
 func (c *KinesisClientLibConfiguration) WithMaxRecords(maxRecords int) *KinesisClientLibConfiguration {
 	checkIsValuePositive("MaxRecords", maxRecords)
 	c.MaxRecords = maxRecords
+	return c
+}
+
+// WithMaxLeasesForWorker configures maximum lease this worker can handles. It determines how maximun number of shards
+// this worker can handle.
+func (c *KinesisClientLibConfiguration) WithMaxLeasesForWorker(n int) *KinesisClientLibConfiguration {
+	checkIsValuePositive("MaxLeasesForWorker", n)
+	c.MaxLeasesForWorker = n
 	return c
 }
 
@@ -135,19 +136,5 @@ func (c *KinesisClientLibConfiguration) WithMetricsBufferTimeMillis(metricsBuffe
 func (c *KinesisClientLibConfiguration) WithMetricsMaxQueueSize(metricsMaxQueueSize int) *KinesisClientLibConfiguration {
 	checkIsValuePositive("MetricsMaxQueueSize", metricsMaxQueueSize)
 	c.MetricsMaxQueueSize = metricsMaxQueueSize
-	return c
-}
-
-// WithRegionName configures region for the stream
-func (c *KinesisClientLibConfiguration) WithRegionName(regionName string) *KinesisClientLibConfiguration {
-	checkIsValueNotEmpty("RegionName", regionName)
-	c.RegionName = regionName
-	return c
-}
-
-// WithWorkerThreadPoolSize configures worker thread pool size
-func (c *KinesisClientLibConfiguration) WithWorkerThreadPoolSize(n int) *KinesisClientLibConfiguration {
-	checkIsValuePositive("WorkerThreadPoolSize", n)
-	c.WorkerThreadPoolSize = n
 	return c
 }

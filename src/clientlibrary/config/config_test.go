@@ -7,7 +7,7 @@ import (
 )
 
 func TestConfig(t *testing.T) {
-	kclConfig := NewKinesisClientLibConfig("appName", "StreamName", "workerId").
+	kclConfig := NewKinesisClientLibConfig("appName", "StreamName", "us-west-2", "workerId").
 		WithFailoverTimeMillis(500).
 		WithMaxRecords(100).
 		WithInitialPositionInStream(TRIM_HORIZON).
@@ -15,8 +15,7 @@ func TestConfig(t *testing.T) {
 		WithCallProcessRecordsEvenForEmptyRecordList(true).
 		WithTaskBackoffTimeMillis(10).
 		WithMetricsBufferTimeMillis(500).
-		WithMetricsMaxQueueSize(200).
-		WithRegionName("us-west-2")
+		WithMetricsMaxQueueSize(200)
 
 	assert.Equal(t, "appName", kclConfig.ApplicationName)
 	assert.Equal(t, 500, kclConfig.FailoverTimeMillis)

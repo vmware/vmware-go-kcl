@@ -5,17 +5,17 @@ import (
 	"math"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
 )
 
 const (
-	EPSILON_MS = 25
-
 	// LATEST start after the most recent data record (fetch new data).
-	LATEST = InitialPositionInStream(1)
+	LATEST InitialPositionInStream = iota + 1
 	// TRIM_HORIZON start from the oldest available data record
-	TRIM_HORIZON = LATEST + 1
+	TRIM_HORIZON
 	// AT_TIMESTAMP start from the record at or after the specified server-side Timestamp.
-	AT_TIMESTAMP = TRIM_HORIZON + 1
+	AT_TIMESTAMP
 
 	// The location in the shard from which the KinesisClientLibrary will start fetching records from
 	// when the application starts for the first time and there is no checkpoint for the shard.
@@ -119,6 +119,7 @@ type (
 	}
 
 	// Configuration for the Kinesis Client Library.
+	// Note: There is no need to configure credential provider. Credential can be get from InstanceProfile.
 	KinesisClientLibConfiguration struct {
 		// ApplicationName is name of application. Kinesis allows multiple applications to consume the same stream.
 		ApplicationName string
@@ -131,12 +132,6 @@ type (
 
 		// WorkerID used to distinguish different workers/processes of a Kinesis application
 		WorkerID string
-
-		// KinesisEndpoint endpoint
-		KinesisEndpoint string
-
-		// DynamoDB endpoint
-		DynamoDBEndpoint string
 
 		// InitialPositionInStream specifies the Position in the stream where a new application should start from
 		InitialPositionInStream InitialPositionInStream
@@ -209,11 +204,18 @@ type (
 		// Worker should skip syncing shards and leases at startup if leases are present
 		// This is useful for optimizing deployments to large fleets working on a stable stream.
 		SkipShardSyncAtWorkerInitializationIfLeasesExist bool
-
-		// The max number of threads in the worker thread pool to getRecords.
-		WorkerThreadPoolSize int
 	}
 )
+
+var positionMap = map[InitialPositionInStream]*string{
+	LATEST:       aws.String("LATEST"),
+	TRIM_HORIZON: aws.String("TRIM_HORIZON"),
+	AT_TIMESTAMP: aws.String("AT_TIMESTAMP"),
+}
+
+func InitalPositionInStreamToShardIteratorType(pos InitialPositionInStream) *string {
+	return positionMap[pos]
+}
 
 func empty(s string) bool {
 	return len(strings.TrimSpace(s)) == 0

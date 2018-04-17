@@ -6,6 +6,6 @@ package interfaces
 // sub-sequence number, in addition to the regular sequence number of the Kinesis record. The sub-sequence number
 // is used to checkpoint within an aggregated record.
 type ExtendedSequenceNumber struct {
-	sequenceNumber    string
-	subSequenceNumber int64
+	SequenceNumber    *string
+	SubSequenceNumber int64
 }

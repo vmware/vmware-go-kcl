@@ -16,8 +16,11 @@ const (
 // processing the corresponding unit of work, or until it fails. When the worker stops holding the lease, another worker will
 // take and hold the lease.
 type Lease struct {
-	leaseKey     string
-	leaseOwner   string
+	// shard-id
+	leaseKey string
+	// worker#
+	leaseOwner string
+	// ccounter incremented periodically
 	leaseCounter int64
 
 	// This field is used to prevent updates to leases that we have lost and re-acquired. It is deliberately not
