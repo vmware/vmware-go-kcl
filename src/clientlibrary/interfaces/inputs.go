@@ -3,6 +3,7 @@ package interfaces
 import (
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	ks "github.com/aws/aws-sdk-go/service/kinesis"
 )
 
@@ -60,3 +61,13 @@ type (
 		Checkpointer   IRecordProcessorCheckpointer
 	}
 )
+
+var shutdownReasonMap = map[ShutdownReason]*string{
+	REQUESTED: aws.String("REQUESTED"),
+	TERMINATE: aws.String("TERMINATE"),
+	ZOMBIE:    aws.String("ZOMBIE"),
+}
+
+func ShutdownReasonMessage(reason ShutdownReason) *string {
+	return shutdownReasonMap[reason]
+}

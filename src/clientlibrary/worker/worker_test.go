@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	log "github.com/sirupsen/logrus"
 
 	cfg "clientlibrary/config"
@@ -28,9 +29,10 @@ func TestWorker(t *testing.T) {
 	defer os.Unsetenv("AWS_SECRET_ACCESS_KEY")
 	kclConfig := cfg.NewKinesisClientLibConfig("appName", streamName, regionName, workerID).
 		WithInitialPositionInStream(cfg.LATEST).
-		WithMaxRecords(40).
+		WithMaxRecords(10).
 		WithMaxLeasesForWorker(1).
-		WithShardSyncIntervalMillis(5000)
+		WithShardSyncIntervalMillis(5000).
+		WithFailoverTimeMillis(300000)
 
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
@@ -80,7 +82,7 @@ type dumpRecordProcessor struct {
 }
 
 func (dd *dumpRecordProcessor) Initialize(input *kc.InitializationInput) {
-	dd.t.Logf("sharId=%v", input.ShardId)
+	dd.t.Logf("Processing SharId: %v at checkpoint: %v", input.ShardId, aws.StringValue(input.ExtendedSequenceNumber.SequenceNumber))
 }
 
 func (dd *dumpRecordProcessor) ProcessRecords(input *kc.ProcessRecordsInput) {
@@ -96,13 +98,12 @@ func (dd *dumpRecordProcessor) ProcessRecords(input *kc.ProcessRecordsInput) {
 		assert.Equal(dd.t, specstr, string(v.Data))
 	}
 
-	dd.t.Logf("Checkpoint it and MillisBehindLatest = %v", input.MillisBehindLatest)
 	// checkpoint it after processing this batch
 	lastRecordSequenceNubmer := input.Records[len(input.Records)-1].SequenceNumber
+	dd.t.Logf("Checkpoint progress at: %v,  MillisBehindLatest = %v", lastRecordSequenceNubmer, input.MillisBehindLatest)
 	input.Checkpointer.Checkpoint(lastRecordSequenceNubmer)
 }
 
 func (dd *dumpRecordProcessor) Shutdown(input *kc.ShutdownInput) {
-	dd.t.Logf("Shutdown Reason = %v", input.ShutdownReason)
-
+	dd.t.Logf("Shutdown Reason: %v", aws.StringValue(kc.ShutdownReasonMessage(input.ShutdownReason)))
 }

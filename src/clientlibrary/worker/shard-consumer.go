@@ -56,6 +56,7 @@ type ShardConsumer struct {
 }
 
 func (sc *ShardConsumer) getShardIterator(shard *shardStatus) (*string, error) {
+	// Get checkpoint of the shard from dynamoDB
 	err := sc.checkpointer.FetchCheckpoint(shard)
 	if err != nil && err != ErrSequenceIDNotFound {
 		return nil, err
@@ -64,6 +65,8 @@ func (sc *ShardConsumer) getShardIterator(shard *shardStatus) (*string, error) {
 	// If there isn't any checkpoint for the shard, use the configuration value.
 	if shard.Checkpoint == "" {
 		initPos := sc.kclConfig.InitialPositionInStream
+		log.Debugf("No checkpoint recorded for shard: %v, starting with: %v", shard.ID,
+			aws.StringValue(config.InitalPositionInStreamToShardIteratorType(initPos)))
 		shardIterArgs := &kinesis.GetShardIteratorInput{
 			ShardId:           &shard.ID,
 			ShardIteratorType: config.InitalPositionInStreamToShardIteratorType(initPos),
@@ -76,6 +79,7 @@ func (sc *ShardConsumer) getShardIterator(shard *shardStatus) (*string, error) {
 		return iterResp.ShardIterator, nil
 	}
 
+	log.Debugf("Start shard: %v at checkpoint: %v", shard.ID, shard.Checkpoint)
 	shardIterArgs := &kinesis.GetShardIteratorInput{
 		ShardId:                &shard.ID,
 		ShardIteratorType:      aws.String("AFTER_SEQUENCE_NUMBER"),
@@ -97,6 +101,13 @@ func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 		log.Errorf("Unable to get shard iterator for %s: %v", shard.ID, err)
 		return err
 	}
+
+	// Start processing events and notify record processor on shard and starting checkpoint
+	input := &kcl.InitializationInput{
+		ShardId:                shard.ID,
+		ExtendedSequenceNumber: &kcl.ExtendedSequenceNumber{SequenceNumber: aws.String(shard.Checkpoint)},
+	}
+	sc.recordProcessor.Initialize(input)
 
 	recordCheckpointer := NewRecordProcessorCheckpoint(shard, sc.checkpointer)
 	var retriedErrors int
@@ -147,7 +158,7 @@ func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 
 		recordLength := len(input.Records)
 		recordBytes := int64(0)
-		log.Debugf("Received %d records", recordLength)
+		log.Debugf("Received %d records, MillisBehindLatest: %v", recordLength, input.MillisBehindLatest)
 
 		for _, r := range getResp.Records {
 			recordBytes += int64(len(r.Data))
@@ -164,9 +175,6 @@ func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 			sc.mService.RecordProcessRecordsTime(shard.ID, float64(processedRecordsTiming))
 		}
 
-		// Idle between each read, the user is responsible for checkpoint the progress
-		time.Sleep(time.Duration(sc.kclConfig.IdleTimeBetweenReadsInMillis) * time.Millisecond)
-
 		sc.mService.IncrRecordsProcessed(shard.ID, recordLength)
 		sc.mService.IncrBytesProcessed(shard.ID, recordBytes)
 		sc.mService.MillisBehindLatest(shard.ID, float64(*getResp.MillisBehindLatest))
@@ -174,6 +182,13 @@ func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 		// Convert from nanoseconds to milliseconds
 		getRecordsTime := time.Since(getRecordsStartTime) / 1000000
 		sc.mService.RecordGetRecordsTime(shard.ID, float64(getRecordsTime))
+
+		// Idle between each read, the user is responsible for checkpoint the progress
+		// This value is only used when no records are returned; if records are returned, it should immediately
+		// retrieve the next set of records.
+		if recordLength == 0 && aws.Int64Value(getResp.MillisBehindLatest) < int64(sc.kclConfig.IdleTimeBetweenReadsInMillis) {
+			time.Sleep(time.Duration(sc.kclConfig.IdleTimeBetweenReadsInMillis) * time.Millisecond)
+		}
 
 		// The shard has been closed, so no new records can be read from it
 		if getResp.NextShardIterator == nil {

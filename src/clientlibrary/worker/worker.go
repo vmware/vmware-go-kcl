@@ -268,6 +268,7 @@ func (w *Worker) getShardIDs(startShardID string) error {
 
 	var lastShardID string
 	for _, s := range streamDesc.StreamDescription.Shards {
+		// found new shard
 		if _, ok := w.shardStatus[*s.ShardId]; !ok {
 			log.Debugf("Found shard with id %s", *s.ShardId)
 			w.shardStatus[*s.ShardId] = &shardStatus{

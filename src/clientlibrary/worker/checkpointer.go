@@ -15,6 +15,11 @@ import (
 )
 
 const (
+	LEASE_KEY_KEY                  = "ShardID"
+	LEASE_OWNER_KEY                = "AssignedTo"
+	LEASE_TIMEOUT_KEY              = "LeaseTimeout"
+	CHECKPOINT_SEQUENCE_NUMBER_KEY = "Checkpoint"
+
 	// ErrLeaseNotAquired is returned when we failed to get a lock on the shard
 	ErrLeaseNotAquired = "Lease is already held by another node"
 	// ErrInvalidDynamoDBSchema is returned when there are one or more fields missing from the table
@@ -74,8 +79,8 @@ func (checkpointer *DynamoCheckpoint) GetLease(shard *shardStatus, newAssignTo s
 		return err
 	}
 
-	assignedVar, assignedToOk := currentCheckpoint["AssignedTo"]
-	leaseVar, leaseTimeoutOk := currentCheckpoint["LeaseTimeout"]
+	assignedVar, assignedToOk := currentCheckpoint[LEASE_OWNER_KEY]
+	leaseVar, leaseTimeoutOk := currentCheckpoint[LEASE_TIMEOUT_KEY]
 	var conditionalExpression string
 	var expressionAttributeValues map[string]*dynamodb.AttributeValue
 
@@ -108,19 +113,19 @@ func (checkpointer *DynamoCheckpoint) GetLease(shard *shardStatus, newAssignTo s
 	}
 
 	marshalledCheckpoint := map[string]*dynamodb.AttributeValue{
-		"ShardID": {
+		LEASE_KEY_KEY: {
 			S: &shard.ID,
 		},
-		"AssignedTo": {
+		LEASE_OWNER_KEY: {
 			S: &newAssignTo,
 		},
-		"LeaseTimeout": {
+		LEASE_TIMEOUT_KEY: {
 			S: &newLeaseTimeoutString,
 		},
 	}
 
 	if shard.Checkpoint != "" {
-		marshalledCheckpoint["Checkpoint"] = &dynamodb.AttributeValue{
+		marshalledCheckpoint[CHECKPOINT_SEQUENCE_NUMBER_KEY] = &dynamodb.AttributeValue{
 			S: &shard.Checkpoint,
 		}
 	}
@@ -147,16 +152,16 @@ func (checkpointer *DynamoCheckpoint) GetLease(shard *shardStatus, newAssignTo s
 func (checkpointer *DynamoCheckpoint) CheckpointSequence(shard *shardStatus) error {
 	leaseTimeout := shard.LeaseTimeout.UTC().Format(time.RFC3339)
 	marshalledCheckpoint := map[string]*dynamodb.AttributeValue{
-		"ShardID": {
+		LEASE_KEY_KEY: {
 			S: &shard.ID,
 		},
-		"SequenceID": {
+		CHECKPOINT_SEQUENCE_NUMBER_KEY: {
 			S: &shard.Checkpoint,
 		},
-		"AssignedTo": {
+		LEASE_OWNER_KEY: {
 			S: &shard.AssignedTo,
 		},
-		"LeaseTimeout": {
+		LEASE_TIMEOUT_KEY: {
 			S: &leaseTimeout,
 		},
 	}
@@ -170,7 +175,7 @@ func (checkpointer *DynamoCheckpoint) FetchCheckpoint(shard *shardStatus) error 
 		return err
 	}
 
-	sequenceID, ok := checkpoint["SequenceID"]
+	sequenceID, ok := checkpoint[CHECKPOINT_SEQUENCE_NUMBER_KEY]
 	if !ok {
 		return ErrSequenceIDNotFound
 	}
@@ -179,7 +184,7 @@ func (checkpointer *DynamoCheckpoint) FetchCheckpoint(shard *shardStatus) error 
 	defer shard.mux.Unlock()
 	shard.Checkpoint = *sequenceID.S
 
-	if assignedTo, ok := checkpoint["Assignedto"]; ok {
+	if assignedTo, ok := checkpoint[LEASE_OWNER_KEY]; ok {
 		shard.AssignedTo = *assignedTo.S
 	}
 	return nil
@@ -189,13 +194,13 @@ func (checkpointer *DynamoCheckpoint) createTable() error {
 	input := &dynamodb.CreateTableInput{
 		AttributeDefinitions: []*dynamodb.AttributeDefinition{
 			{
-				AttributeName: aws.String("ShardID"),
+				AttributeName: aws.String(LEASE_KEY_KEY),
 				AttributeType: aws.String("S"),
 			},
 		},
 		KeySchema: []*dynamodb.KeySchemaElement{
 			{
-				AttributeName: aws.String("ShardID"),
+				AttributeName: aws.String(LEASE_KEY_KEY),
 				KeyType:       aws.String("HASH"),
 			},
 		},
@@ -256,7 +261,7 @@ func (checkpointer *DynamoCheckpoint) getItem(shardID string) (map[string]*dynam
 		item, err = checkpointer.svc.GetItem(&dynamodb.GetItemInput{
 			TableName: aws.String(checkpointer.TableName),
 			Key: map[string]*dynamodb.AttributeValue{
-				"ShardID": {
+				LEASE_KEY_KEY: {
 					S: aws.String(shardID),
 				},
 			},
