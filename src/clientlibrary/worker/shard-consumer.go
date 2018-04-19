@@ -96,6 +96,12 @@ func (sc *ShardConsumer) getShardIterator(shard *shardStatus) (*string, error) {
 func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 	defer sc.waitGroup.Done()
 
+	// If the shard is child shard, need to wait until the parent finished.
+	if err := sc.waitOnParentShard(shard); err != nil {
+		log.Errorf("Error in waiting for parent shard: %v to finish. Error: %+v", shard.ParentShardId, err)
+		return err
+	}
+
 	shardIterator, err := sc.getShardIterator(shard)
 	if err != nil {
 		log.Errorf("Unable to get shard iterator for %s: %v", shard.ID, err)
@@ -206,5 +212,30 @@ func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 			return nil
 		case <-time.After(1 * time.Nanosecond):
 		}
+	}
+}
+
+// Need to wait until the parent shard finished
+func (sc *ShardConsumer) waitOnParentShard(shard *shardStatus) error {
+	if len(shard.ParentShardId) == 0 {
+		return nil
+	}
+
+	pshard := &shardStatus{
+		ID:  shard.ParentShardId,
+		mux: &sync.Mutex{},
+	}
+
+	for {
+		if err := sc.checkpointer.FetchCheckpoint(pshard); err != nil {
+			return err
+		}
+
+		// Parent shard is finished.
+		if pshard.Checkpoint == SHARD_END {
+			return nil
+		}
+
+		time.Sleep(time.Duration(sc.kclConfig.ParentShardPollIntervalMillis) * time.Millisecond)
 	}
 }

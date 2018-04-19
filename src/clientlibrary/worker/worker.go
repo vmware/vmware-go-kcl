@@ -22,11 +22,16 @@ import (
 )
 
 type shardStatus struct {
-	ID           string
-	Checkpoint   string
-	AssignedTo   string
-	mux          *sync.Mutex
-	LeaseTimeout time.Time
+	ID            string
+	ParentShardId string
+	Checkpoint    string
+	AssignedTo    string
+	mux           *sync.Mutex
+	LeaseTimeout  time.Time
+	// Shard Range
+	StartingSequenceNumber string
+	// child shard doesn't have end sequence number
+	EndingSequenceNumber string
 }
 
 func (ss *shardStatus) getLeaseOwner() string {
@@ -214,19 +219,29 @@ func (w *Worker) eventLoop() {
 
 				err := w.checkpointer.FetchCheckpoint(shard)
 				if err != nil {
+					// checkpoint may not existed yet if not an error condition.
 					if err != ErrSequenceIDNotFound {
-						log.Fatal(err)
+						log.Error(err)
+						// move on to next shard
+						continue
 					}
+				}
+
+				// The shard is closed and we have processed all records
+				if shard.Checkpoint == SHARD_END {
+					continue
 				}
 
 				err = w.checkpointer.GetLease(shard, w.workerID)
 				if err != nil {
-					if err.Error() == ErrLeaseNotAquired {
-						continue
+					// cannot get lease on the shard
+					if err.Error() != ErrLeaseNotAquired {
+						log.Error(err)
 					}
-					log.Fatal(err)
+					continue
 				}
 
+				// log metrics on got lease
 				w.mService.LeaseGained(shard.ID)
 
 				log.Infof("Start Shard Consumer for shard: %v", shard.ID)
@@ -272,8 +287,11 @@ func (w *Worker) getShardIDs(startShardID string) error {
 		if _, ok := w.shardStatus[*s.ShardId]; !ok {
 			log.Debugf("Found shard with id %s", *s.ShardId)
 			w.shardStatus[*s.ShardId] = &shardStatus{
-				ID:  *s.ShardId,
-				mux: &sync.Mutex{},
+				ID:            *s.ShardId,
+				ParentShardId: aws.StringValue(s.ParentShardId),
+				mux:           &sync.Mutex{},
+				StartingSequenceNumber: aws.StringValue(s.SequenceNumberRange.StartingSequenceNumber),
+				EndingSequenceNumber:   aws.StringValue(s.SequenceNumberRange.EndingSequenceNumber),
 			}
 		}
 		lastShardID = *s.ShardId

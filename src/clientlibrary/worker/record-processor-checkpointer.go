@@ -45,7 +45,14 @@ func (pc *PreparedCheckpointer) Checkpoint() error {
 
 func (rc *RecordProcessorCheckpointer) Checkpoint(sequenceNumber *string) error {
 	rc.shard.mux.Lock()
-	rc.shard.Checkpoint = aws.StringValue(sequenceNumber)
+
+	// checkpoint the last sequence of a closed shard
+	if rc.shard.EndingSequenceNumber == aws.StringValue(sequenceNumber) {
+		rc.shard.Checkpoint = SHARD_END
+	} else {
+		rc.shard.Checkpoint = aws.StringValue(sequenceNumber)
+	}
+
 	rc.shard.mux.Unlock()
 	return rc.checkpoint.CheckpointSequence(rc.shard)
 }

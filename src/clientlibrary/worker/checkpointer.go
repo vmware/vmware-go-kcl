@@ -19,6 +19,10 @@ const (
 	LEASE_OWNER_KEY                = "AssignedTo"
 	LEASE_TIMEOUT_KEY              = "LeaseTimeout"
 	CHECKPOINT_SEQUENCE_NUMBER_KEY = "Checkpoint"
+	PARENT_SHARD_ID_KEY            = "ParentShardId"
+
+	// We've completely processed all records in this shard.
+	SHARD_END = "SHARD_END"
 
 	// ErrLeaseNotAquired is returned when we failed to get a lock on the shard
 	ErrLeaseNotAquired = "Lease is already held by another node"
@@ -124,6 +128,10 @@ func (checkpointer *DynamoCheckpoint) GetLease(shard *shardStatus, newAssignTo s
 		},
 	}
 
+	if len(shard.ParentShardId) > 0 {
+		marshalledCheckpoint[PARENT_SHARD_ID_KEY] = &dynamodb.AttributeValue{S: &shard.ParentShardId}
+	}
+
 	if shard.Checkpoint != "" {
 		marshalledCheckpoint[CHECKPOINT_SEQUENCE_NUMBER_KEY] = &dynamodb.AttributeValue{
 			S: &shard.Checkpoint,
@@ -165,6 +173,11 @@ func (checkpointer *DynamoCheckpoint) CheckpointSequence(shard *shardStatus) err
 			S: &leaseTimeout,
 		},
 	}
+
+	if len(shard.ParentShardId) > 0 {
+		marshalledCheckpoint[PARENT_SHARD_ID_KEY] = &dynamodb.AttributeValue{S: &shard.ParentShardId}
+	}
+
 	return checkpointer.saveItem(marshalledCheckpoint)
 }
 
