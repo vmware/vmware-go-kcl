@@ -15,6 +15,7 @@ lint() {
     gometalinter \
         --exclude=_mock.go \
         --disable=gotype  \
+        --disable=golint \
         --vendor \
         --skip=test \
         --fast \
