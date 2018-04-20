@@ -15,8 +15,8 @@ type CloudWatchMonitoringService struct {
 	Namespace     string
 	KinesisStream string
 	WorkerID      string
-	// What granularity we should send metrics to CW at. Note setting this to 1 will cost quite a bit of money
-	// At the time of writing (March 2018) about US$200 per month
+	Region        string
+	// how frequently to send data to cloudwatch
 	ResolutionSec int
 	svc           cloudwatchiface.CloudWatchAPI
 	shardMetrics  map[string]*cloudWatchMetrics
@@ -34,75 +34,82 @@ type cloudWatchMetrics struct {
 }
 
 func (cw *CloudWatchMonitoringService) Init() error {
+	// default to 1 min resolution
 	if cw.ResolutionSec == 0 {
 		cw.ResolutionSec = 60
 	}
 
-	session, err := session.NewSessionWithOptions(
-		session.Options{
-			SharedConfigState: session.SharedConfigEnable,
-		},
-	)
-	if err != nil {
-		return err
-	}
-
-	cw.svc = cloudwatch.New(session)
+	s := session.New(&aws.Config{Region: aws.String(cw.Region)})
+	cw.svc = cloudwatch.New(s)
 	cw.shardMetrics = make(map[string]*cloudWatchMetrics)
+
 	return nil
 }
 
+// Start daemon to flush metrics periodically
 func (cw *CloudWatchMonitoringService) flushDaemon() {
 	previousFlushTime := time.Now()
 	resolutionDuration := time.Duration(cw.ResolutionSec) * time.Second
 	for {
 		time.Sleep(resolutionDuration - time.Now().Sub(previousFlushTime))
-		err := cw.flush()
+		err := cw.Flush()
 		if err != nil {
-			log.Errorln("Error sending metrics to CloudWatch", err)
+			log.Errorf("Error sending metrics to CloudWatch. %+v", err)
 		}
 		previousFlushTime = time.Now()
 	}
 }
 
-func (cw *CloudWatchMonitoringService) flush() error {
+func (cw *CloudWatchMonitoringService) Flush() error {
+	// publish per shard metrics
 	for shard, metric := range cw.shardMetrics {
 		metric.Lock()
 		defaultDimensions := []*cloudwatch.Dimension{
-			&cloudwatch.Dimension{
-				Name:  aws.String("shard"),
+			{
+				Name:  aws.String("Shard"),
 				Value: &shard,
 			},
-			&cloudwatch.Dimension{
+			{
 				Name:  aws.String("KinesisStreamName"),
 				Value: &cw.KinesisStream,
 			},
 		}
-		leaseDimensions := make([]*cloudwatch.Dimension, len(defaultDimensions))
-		copy(defaultDimensions, leaseDimensions)
-		leaseDimensions = append(leaseDimensions, &cloudwatch.Dimension{
-			Name:  aws.String("WorkerID"),
-			Value: &cw.WorkerID,
-		})
+
+		leaseDimensions := []*cloudwatch.Dimension{
+			{
+				Name:  aws.String("Shard"),
+				Value: &shard,
+			},
+			{
+				Name:  aws.String("KinesisStreamName"),
+				Value: &cw.KinesisStream,
+			},
+			{
+				Name:  aws.String("WorkerID"),
+				Value: &cw.WorkerID,
+			},
+		}
 		metricTimestamp := time.Now()
+
+		// Publish metrics data to cloud watch
 		_, err := cw.svc.PutMetricData(&cloudwatch.PutMetricDataInput{
 			Namespace: aws.String(cw.Namespace),
 			MetricData: []*cloudwatch.MetricDatum{
-				&cloudwatch.MetricDatum{
+				{
 					Dimensions: defaultDimensions,
 					MetricName: aws.String("RecordsProcessed"),
 					Unit:       aws.String("Count"),
 					Timestamp:  &metricTimestamp,
 					Value:      aws.Float64(float64(metric.processedRecords)),
 				},
-				&cloudwatch.MetricDatum{
+				{
 					Dimensions: defaultDimensions,
 					MetricName: aws.String("DataBytesProcessed"),
-					Unit:       aws.String("Byte"),
+					Unit:       aws.String("Bytes"),
 					Timestamp:  &metricTimestamp,
 					Value:      aws.Float64(float64(metric.processedBytes)),
 				},
-				&cloudwatch.MetricDatum{
+				{
 					Dimensions: defaultDimensions,
 					MetricName: aws.String("MillisBehindLatest"),
 					Unit:       aws.String("Milliseconds"),
@@ -114,7 +121,7 @@ func (cw *CloudWatchMonitoringService) flush() error {
 						Minimum:     minFloat64(metric.behindLatestMillis),
 					},
 				},
-				&cloudwatch.MetricDatum{
+				{
 					Dimensions: defaultDimensions,
 					MetricName: aws.String("KinesisDataFetcher.getRecords.Time"),
 					Unit:       aws.String("Milliseconds"),
@@ -126,7 +133,7 @@ func (cw *CloudWatchMonitoringService) flush() error {
 						Minimum:     minFloat64(metric.getRecordsTime),
 					},
 				},
-				&cloudwatch.MetricDatum{
+				{
 					Dimensions: defaultDimensions,
 					MetricName: aws.String("RecordProcessor.processRecords.Time"),
 					Unit:       aws.String("Milliseconds"),
@@ -138,14 +145,14 @@ func (cw *CloudWatchMonitoringService) flush() error {
 						Minimum:     minFloat64(metric.processRecordsTime),
 					},
 				},
-				&cloudwatch.MetricDatum{
+				{
 					Dimensions: leaseDimensions,
 					MetricName: aws.String("RenewLease.Success"),
 					Unit:       aws.String("Count"),
 					Timestamp:  &metricTimestamp,
 					Value:      aws.Float64(float64(metric.leaseRenewals)),
 				},
-				&cloudwatch.MetricDatum{
+				{
 					Dimensions: leaseDimensions,
 					MetricName: aws.String("CurrentLeases"),
 					Unit:       aws.String("Count"),
@@ -161,7 +168,10 @@ func (cw *CloudWatchMonitoringService) flush() error {
 			metric.leaseRenewals = 0
 			metric.getRecordsTime = []float64{}
 			metric.processRecordsTime = []float64{}
+		} else {
+			log.Errorf("Error in publishing cloudwatch metrics. Error: %+v", err)
 		}
+
 		metric.Unlock()
 		return err
 	}

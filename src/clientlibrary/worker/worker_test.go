@@ -1,15 +1,18 @@
 package worker
 
 import (
+	"net/http"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/prometheus/common/expfmt"
 	log "github.com/sirupsen/logrus"
 
 	cfg "clientlibrary/config"
 	kc "clientlibrary/interfaces"
+	"clientlibrary/metrics"
 	"clientlibrary/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -21,6 +24,7 @@ const (
 )
 
 const specstr = `{"name":"kube-qQyhk","networking":{"containerNetworkCidr":"10.2.0.0/16"},"orgName":"BVT-Org-cLQch","projectName":"project-tDSJd","serviceLevel":"DEVELOPER","size":{"count":1},"version":"1.8.1-4"}`
+const metricsSystem = "cloudwatch"
 
 func TestWorker(t *testing.T) {
 	os.Setenv("AWS_ACCESS_KEY_ID", "your aws access key id")
@@ -40,7 +44,10 @@ func TestWorker(t *testing.T) {
 	assert.Equal(t, regionName, kclConfig.RegionName)
 	assert.Equal(t, streamName, kclConfig.StreamName)
 
-	worker := NewWorker(recordProcessorFactory(t), kclConfig, nil)
+	// configure cloudwatch as metrics system
+	metricsConfig := getMetricsConfig(metricsSystem)
+
+	worker := NewWorker(recordProcessorFactory(t), kclConfig, metricsConfig)
 	assert.Equal(t, regionName, worker.regionName)
 	assert.Equal(t, streamName, worker.streamName)
 
@@ -56,8 +63,51 @@ func TestWorker(t *testing.T) {
 		}
 	}
 
+	// wait a few seconds before shutdown processing
 	time.Sleep(10 * time.Second)
+
+	if metricsConfig != nil && metricsConfig.MonitoringService == "prometheus" {
+		res, err := http.Get("http://localhost:8080/metrics")
+		if err != nil {
+			t.Fatalf("Error scraping Prometheus endpoint %s", err)
+		}
+
+		var parser expfmt.TextParser
+		parsed, err := parser.TextToMetricFamilies(res.Body)
+		res.Body.Close()
+		if err != nil {
+			t.Errorf("Error reading monitoring response %s", err)
+		}
+		t.Logf("Prometheus: %+v", parsed)
+
+	}
+
 	worker.Shutdown()
+}
+
+// configure different metrics system
+func getMetricsConfig(service string) *metrics.MonitoringConfiguration {
+	if service == "cloudwatch" {
+		return &metrics.MonitoringConfiguration{
+			MonitoringService: "cloudwatch",
+			Region:            regionName,
+			CloudWatch: metrics.CloudWatchMonitoringService{
+				ResolutionSec: 1,
+			},
+		}
+	}
+
+	if service == "prometheus" {
+		return &metrics.MonitoringConfiguration{
+			MonitoringService: "prometheus",
+			Region:            regionName,
+			Prometheus: metrics.PrometheusMonitoringService{
+				ListenAddress: ":8080",
+			},
+		}
+	}
+
+	return nil
 }
 
 // Record processor factory is used to create RecordProcessor

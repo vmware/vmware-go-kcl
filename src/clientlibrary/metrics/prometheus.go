@@ -14,6 +14,7 @@ type PrometheusMonitoringService struct {
 	Namespace          string
 	KinesisStream      string
 	WorkerID           string
+	Region             string
 	processedRecords   *prometheus.CounterVec
 	processedBytes     *prometheus.CounterVec
 	behindLatestMillis *prometheus.GaugeVec
@@ -111,3 +112,5 @@ func (p *PrometheusMonitoringService) RecordGetRecordsTime(shard string, time fl
 func (p *PrometheusMonitoringService) RecordProcessRecordsTime(shard string, time float64) {
 	p.processRecordsTime.With(prometheus.Labels{"shard": shard, "kinesisStream": p.KinesisStream}).Observe(time)
 }
+
+func (p *PrometheusMonitoringService) Flush() error { return nil }
