@@ -15,6 +15,7 @@ type MonitoringConfiguration struct {
 
 type MonitoringService interface {
 	Init() error
+	Start() error
 	IncrRecordsProcessed(string, int)
 	IncrBytesProcessed(string, int64)
 	MillisBehindLatest(string, float64)
@@ -23,7 +24,7 @@ type MonitoringService interface {
 	LeaseRenewed(string)
 	RecordGetRecordsTime(string, float64)
 	RecordProcessRecordsTime(string, float64)
-	Flush() error
+	Shutdown()
 }
 
 func (m *MonitoringConfiguration) Init(nameSpace, streamName string, workerID string) error {
@@ -57,9 +58,9 @@ func (m *MonitoringConfiguration) GetMonitoringService() MonitoringService {
 
 type noopMonitoringService struct{}
 
-func (n *noopMonitoringService) Init() error {
-	return nil
-}
+func (n *noopMonitoringService) Init() error  { return nil }
+func (n *noopMonitoringService) Start() error { return nil }
+func (n *noopMonitoringService) Shutdown()    {}
 
 func (n *noopMonitoringService) IncrRecordsProcessed(shard string, count int)         {}
 func (n *noopMonitoringService) IncrBytesProcessed(shard string, count int64)         {}
@@ -69,4 +70,3 @@ func (n *noopMonitoringService) LeaseLost(shard string)                         
 func (n *noopMonitoringService) LeaseRenewed(shard string)                            {}
 func (n *noopMonitoringService) RecordGetRecordsTime(shard string, time float64)      {}
 func (n *noopMonitoringService) RecordProcessRecordsTime(shard string, time float64)  {}
-func (n *noopMonitoringService) Flush() error                                         { return nil }

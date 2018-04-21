@@ -8,6 +8,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// PrometheusMonitoringService to start Prometheus as metrics system.
+// It might be trick if the service onboarding with KCL also uses Prometheus.
+// Therefore, we should start cloudwatch metrics by default instead.
 type PrometheusMonitoringService struct {
 	ListenAddress string
 
@@ -70,16 +73,24 @@ func (p *PrometheusMonitoringService) Init() error {
 		}
 	}
 
-	http.Handle("/metrics", promhttp.Handler())
-	go func() {
-		log.Debugf("Starting Prometheus listener on %s", p.ListenAddress)
-		err := http.ListenAndServe(p.ListenAddress, nil)
-		if err != nil {
-			log.Errorln("Error starting Prometheus metrics endpoint", err)
-		}
-	}()
 	return nil
 }
+
+func (p *PrometheusMonitoringService) Start() error {
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		log.Infof("Starting Prometheus listener on %s", p.ListenAddress)
+		err := http.ListenAndServe(p.ListenAddress, nil)
+		if err != nil {
+			log.Errorf("Error starting Prometheus metrics endpoint. %+v", err)
+		}
+		log.Info("Stopped metrics server")
+	}()
+
+	return nil
+}
+
+func (p *PrometheusMonitoringService) Shutdown() {}
 
 func (p *PrometheusMonitoringService) IncrRecordsProcessed(shard string, count int) {
 	p.processedRecords.With(prometheus.Labels{"shard": shard, "kinesisStream": p.KinesisStream}).Add(float64(count))
@@ -112,5 +123,3 @@ func (p *PrometheusMonitoringService) RecordGetRecordsTime(shard string, time fl
 func (p *PrometheusMonitoringService) RecordProcessRecordsTime(shard string, time float64) {
 	p.processRecordsTime.With(prometheus.Labels{"shard": shard, "kinesisStream": p.KinesisStream}).Observe(time)
 }
-
-func (p *PrometheusMonitoringService) Flush() error { return nil }

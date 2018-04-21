@@ -106,8 +106,11 @@ func (w *Worker) Start() error {
 		return err
 	}
 
-	log.Info("Initialization complete. Starting worker event loop.")
+	// Start monitoring service
+	log.Info("Starting monitoring service.")
+	w.mService.Start()
 
+	log.Info("Starting worker event loop.")
 	// entering event loop
 	go w.eventLoop()
 	return nil
@@ -120,6 +123,7 @@ func (w *Worker) Shutdown() {
 	close(*w.stop)
 	w.waitGroup.Wait()
 
+	w.mService.Shutdown()
 	log.Info("Worker loop is complete. Exiting from worker.")
 }
 
@@ -169,6 +173,8 @@ func (w *Worker) initialize() error {
 		log.Errorf("Error getting Kinesis shards: %s", err)
 		return err
 	}
+
+	log.Info("Initialization complete.")
 
 	return nil
 }

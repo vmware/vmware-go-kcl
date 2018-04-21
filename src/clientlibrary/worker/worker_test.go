@@ -92,7 +92,9 @@ func getMetricsConfig(service string) *metrics.MonitoringConfiguration {
 			MonitoringService: "cloudwatch",
 			Region:            regionName,
 			CloudWatch: metrics.CloudWatchMonitoringService{
-				ResolutionSec: 1,
+				// Those value should come from kclConfig
+				MetricsBufferTimeMillis: 10000,
+				MetricsMaxQueueSize:     20,
 			},
 		}
 	}

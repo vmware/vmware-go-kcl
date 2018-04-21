@@ -209,8 +209,6 @@ func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 		case <-*sc.stop:
 			shutdownInput := &kcl.ShutdownInput{ShutdownReason: kcl.REQUESTED, Checkpointer: recordCheckpointer}
 			sc.recordProcessor.Shutdown(shutdownInput)
-			// flush out the metrics data
-			sc.mService.Flush()
 			return nil
 		case <-time.After(1 * time.Nanosecond):
 		}

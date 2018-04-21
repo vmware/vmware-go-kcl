@@ -16,10 +16,15 @@ type CloudWatchMonitoringService struct {
 	KinesisStream string
 	WorkerID      string
 	Region        string
-	// how frequently to send data to cloudwatch
-	ResolutionSec int
-	svc           cloudwatchiface.CloudWatchAPI
-	shardMetrics  map[string]*cloudWatchMetrics
+
+	// control how often to pusblish to CloudWatch
+	MetricsBufferTimeMillis int
+	MetricsMaxQueueSize     int
+
+	stop         *chan struct{}
+	waitGroup    *sync.WaitGroup
+	svc          cloudwatchiface.CloudWatchAPI
+	shardMetrics *sync.Map
 }
 
 type cloudWatchMetrics struct {
@@ -34,219 +39,251 @@ type cloudWatchMetrics struct {
 }
 
 func (cw *CloudWatchMonitoringService) Init() error {
-	// default to 1 min resolution
-	if cw.ResolutionSec == 0 {
-		cw.ResolutionSec = 60
-	}
-
 	s := session.New(&aws.Config{Region: aws.String(cw.Region)})
 	cw.svc = cloudwatch.New(s)
-	cw.shardMetrics = make(map[string]*cloudWatchMetrics)
+	cw.shardMetrics = new(sync.Map)
+
+	stopChan := make(chan struct{})
+	cw.stop = &stopChan
+	wg := sync.WaitGroup{}
+	cw.waitGroup = &wg
 
 	return nil
 }
 
+func (cw *CloudWatchMonitoringService) Start() error {
+	cw.waitGroup.Add(1)
+	// entering eventloop for sending metrics to CloudWatch
+	go cw.eventloop()
+	return nil
+}
+
+func (cw *CloudWatchMonitoringService) Shutdown() {
+	log.Info("Shutting down cloudwatch metrics system...")
+	close(*cw.stop)
+	cw.waitGroup.Wait()
+	log.Info("Cloudwatch metrics system has been shutdown.")
+}
+
 // Start daemon to flush metrics periodically
-func (cw *CloudWatchMonitoringService) flushDaemon() {
-	previousFlushTime := time.Now()
-	resolutionDuration := time.Duration(cw.ResolutionSec) * time.Second
+func (cw *CloudWatchMonitoringService) eventloop() {
+	defer cw.waitGroup.Done()
+
 	for {
-		time.Sleep(resolutionDuration - time.Now().Sub(previousFlushTime))
-		err := cw.Flush()
+		err := cw.flush()
 		if err != nil {
 			log.Errorf("Error sending metrics to CloudWatch. %+v", err)
 		}
-		previousFlushTime = time.Now()
+
+		select {
+		case <-*cw.stop:
+			log.Info("Shutting down monitoring system")
+			cw.flush()
+			return
+		case <-time.After(time.Duration(cw.MetricsBufferTimeMillis) * time.Millisecond):
+		}
 	}
 }
 
-func (cw *CloudWatchMonitoringService) Flush() error {
-	// publish per shard metrics
-	for shard, metric := range cw.shardMetrics {
-		metric.Lock()
-		defaultDimensions := []*cloudwatch.Dimension{
-			{
-				Name:  aws.String("Shard"),
-				Value: &shard,
-			},
-			{
-				Name:  aws.String("KinesisStreamName"),
-				Value: &cw.KinesisStream,
-			},
-		}
-
-		leaseDimensions := []*cloudwatch.Dimension{
-			{
-				Name:  aws.String("Shard"),
-				Value: &shard,
-			},
-			{
-				Name:  aws.String("KinesisStreamName"),
-				Value: &cw.KinesisStream,
-			},
-			{
-				Name:  aws.String("WorkerID"),
-				Value: &cw.WorkerID,
-			},
-		}
-		metricTimestamp := time.Now()
-
-		// Publish metrics data to cloud watch
-		_, err := cw.svc.PutMetricData(&cloudwatch.PutMetricDataInput{
-			Namespace: aws.String(cw.Namespace),
-			MetricData: []*cloudwatch.MetricDatum{
-				{
-					Dimensions: defaultDimensions,
-					MetricName: aws.String("RecordsProcessed"),
-					Unit:       aws.String("Count"),
-					Timestamp:  &metricTimestamp,
-					Value:      aws.Float64(float64(metric.processedRecords)),
-				},
-				{
-					Dimensions: defaultDimensions,
-					MetricName: aws.String("DataBytesProcessed"),
-					Unit:       aws.String("Bytes"),
-					Timestamp:  &metricTimestamp,
-					Value:      aws.Float64(float64(metric.processedBytes)),
-				},
-				{
-					Dimensions: defaultDimensions,
-					MetricName: aws.String("MillisBehindLatest"),
-					Unit:       aws.String("Milliseconds"),
-					Timestamp:  &metricTimestamp,
-					StatisticValues: &cloudwatch.StatisticSet{
-						SampleCount: aws.Float64(float64(len(metric.behindLatestMillis))),
-						Sum:         sumFloat64(metric.behindLatestMillis),
-						Maximum:     maxFloat64(metric.behindLatestMillis),
-						Minimum:     minFloat64(metric.behindLatestMillis),
-					},
-				},
-				{
-					Dimensions: defaultDimensions,
-					MetricName: aws.String("KinesisDataFetcher.getRecords.Time"),
-					Unit:       aws.String("Milliseconds"),
-					Timestamp:  &metricTimestamp,
-					StatisticValues: &cloudwatch.StatisticSet{
-						SampleCount: aws.Float64(float64(len(metric.getRecordsTime))),
-						Sum:         sumFloat64(metric.getRecordsTime),
-						Maximum:     maxFloat64(metric.getRecordsTime),
-						Minimum:     minFloat64(metric.getRecordsTime),
-					},
-				},
-				{
-					Dimensions: defaultDimensions,
-					MetricName: aws.String("RecordProcessor.processRecords.Time"),
-					Unit:       aws.String("Milliseconds"),
-					Timestamp:  &metricTimestamp,
-					StatisticValues: &cloudwatch.StatisticSet{
-						SampleCount: aws.Float64(float64(len(metric.processRecordsTime))),
-						Sum:         sumFloat64(metric.processRecordsTime),
-						Maximum:     maxFloat64(metric.processRecordsTime),
-						Minimum:     minFloat64(metric.processRecordsTime),
-					},
-				},
-				{
-					Dimensions: leaseDimensions,
-					MetricName: aws.String("RenewLease.Success"),
-					Unit:       aws.String("Count"),
-					Timestamp:  &metricTimestamp,
-					Value:      aws.Float64(float64(metric.leaseRenewals)),
-				},
-				{
-					Dimensions: leaseDimensions,
-					MetricName: aws.String("CurrentLeases"),
-					Unit:       aws.String("Count"),
-					Timestamp:  &metricTimestamp,
-					Value:      aws.Float64(float64(metric.leasesHeld)),
-				},
-			},
-		})
-		if err == nil {
-			metric.processedRecords = 0
-			metric.processedBytes = 0
-			metric.behindLatestMillis = []float64{}
-			metric.leaseRenewals = 0
-			metric.getRecordsTime = []float64{}
-			metric.processRecordsTime = []float64{}
-		} else {
-			log.Errorf("Error in publishing cloudwatch metrics. Error: %+v", err)
-		}
-
-		metric.Unlock()
-		return err
+func (cw *CloudWatchMonitoringService) flushShard(shard string, metric *cloudWatchMetrics) bool {
+	metric.Lock()
+	defaultDimensions := []*cloudwatch.Dimension{
+		{
+			Name:  aws.String("Shard"),
+			Value: &shard,
+		},
+		{
+			Name:  aws.String("KinesisStreamName"),
+			Value: &cw.KinesisStream,
+		},
 	}
+
+	leaseDimensions := []*cloudwatch.Dimension{
+		{
+			Name:  aws.String("Shard"),
+			Value: &shard,
+		},
+		{
+			Name:  aws.String("KinesisStreamName"),
+			Value: &cw.KinesisStream,
+		},
+		{
+			Name:  aws.String("WorkerID"),
+			Value: &cw.WorkerID,
+		},
+	}
+	metricTimestamp := time.Now()
+
+	data := []*cloudwatch.MetricDatum{
+		{
+			Dimensions: defaultDimensions,
+			MetricName: aws.String("RecordsProcessed"),
+			Unit:       aws.String("Count"),
+			Timestamp:  &metricTimestamp,
+			Value:      aws.Float64(float64(metric.processedRecords)),
+		},
+		{
+			Dimensions: defaultDimensions,
+			MetricName: aws.String("DataBytesProcessed"),
+			Unit:       aws.String("Bytes"),
+			Timestamp:  &metricTimestamp,
+			Value:      aws.Float64(float64(metric.processedBytes)),
+		},
+		{
+			Dimensions: leaseDimensions,
+			MetricName: aws.String("RenewLease.Success"),
+			Unit:       aws.String("Count"),
+			Timestamp:  &metricTimestamp,
+			Value:      aws.Float64(float64(metric.leaseRenewals)),
+		},
+		{
+			Dimensions: leaseDimensions,
+			MetricName: aws.String("CurrentLeases"),
+			Unit:       aws.String("Count"),
+			Timestamp:  &metricTimestamp,
+			Value:      aws.Float64(float64(metric.leasesHeld)),
+		},
+	}
+
+	if len(metric.behindLatestMillis) > 0 {
+		data = append(data, &cloudwatch.MetricDatum{
+			Dimensions: defaultDimensions,
+			MetricName: aws.String("MillisBehindLatest"),
+			Unit:       aws.String("Milliseconds"),
+			Timestamp:  &metricTimestamp,
+			StatisticValues: &cloudwatch.StatisticSet{
+				SampleCount: aws.Float64(float64(len(metric.behindLatestMillis))),
+				Sum:         sumFloat64(metric.behindLatestMillis),
+				Maximum:     maxFloat64(metric.behindLatestMillis),
+				Minimum:     minFloat64(metric.behindLatestMillis),
+			}})
+	}
+
+	if len(metric.getRecordsTime) > 0 {
+		data = append(data, &cloudwatch.MetricDatum{
+			Dimensions: defaultDimensions,
+			MetricName: aws.String("KinesisDataFetcher.getRecords.Time"),
+			Unit:       aws.String("Milliseconds"),
+			Timestamp:  &metricTimestamp,
+			StatisticValues: &cloudwatch.StatisticSet{
+				SampleCount: aws.Float64(float64(len(metric.getRecordsTime))),
+				Sum:         sumFloat64(metric.getRecordsTime),
+				Maximum:     maxFloat64(metric.getRecordsTime),
+				Minimum:     minFloat64(metric.getRecordsTime),
+			}})
+	}
+
+	if len(metric.processRecordsTime) > 0 {
+		data = append(data, &cloudwatch.MetricDatum{
+			Dimensions: defaultDimensions,
+			MetricName: aws.String("RecordProcessor.processRecords.Time"),
+			Unit:       aws.String("Milliseconds"),
+			Timestamp:  &metricTimestamp,
+			StatisticValues: &cloudwatch.StatisticSet{
+				SampleCount: aws.Float64(float64(len(metric.processRecordsTime))),
+				Sum:         sumFloat64(metric.processRecordsTime),
+				Maximum:     maxFloat64(metric.processRecordsTime),
+				Minimum:     minFloat64(metric.processRecordsTime),
+			}})
+	}
+
+	// Publish metrics data to cloud watch
+	_, err := cw.svc.PutMetricData(&cloudwatch.PutMetricDataInput{
+		Namespace:  aws.String(cw.Namespace),
+		MetricData: data,
+	})
+
+	if err == nil {
+		metric.processedRecords = 0
+		metric.processedBytes = 0
+		metric.behindLatestMillis = []float64{}
+		metric.leaseRenewals = 0
+		metric.getRecordsTime = []float64{}
+		metric.processRecordsTime = []float64{}
+	} else {
+		log.Errorf("Error in publishing cloudwatch metrics. Error: %+v", err)
+	}
+
+	metric.Unlock()
+	return true
+}
+
+func (cw *CloudWatchMonitoringService) flush() error {
+	log.Debugf("Flushing metrics data. Stream: %s, Worker: %s", cw.KinesisStream, cw.WorkerID)
+	// publish per shard metrics
+	cw.shardMetrics.Range(func(k, v interface{}) bool {
+		shard, metric := k.(string), v.(*cloudWatchMetrics)
+		return cw.flushShard(shard, metric)
+	})
+
 	return nil
 }
 
 func (cw *CloudWatchMonitoringService) IncrRecordsProcessed(shard string, count int) {
-	if _, ok := cw.shardMetrics[shard]; !ok {
-		cw.shardMetrics[shard] = &cloudWatchMetrics{}
-	}
-	cw.shardMetrics[shard].Lock()
-	defer cw.shardMetrics[shard].Unlock()
-	cw.shardMetrics[shard].processedRecords += int64(count)
+	m := cw.getOrCreatePerShardMetrics(shard)
+	m.Lock()
+	defer m.Unlock()
+	m.processedRecords += int64(count)
 }
 
 func (cw *CloudWatchMonitoringService) IncrBytesProcessed(shard string, count int64) {
-	if _, ok := cw.shardMetrics[shard]; !ok {
-		cw.shardMetrics[shard] = &cloudWatchMetrics{}
-	}
-	cw.shardMetrics[shard].Lock()
-	defer cw.shardMetrics[shard].Unlock()
-	cw.shardMetrics[shard].processedBytes += count
+	m := cw.getOrCreatePerShardMetrics(shard)
+	m.Lock()
+	defer m.Unlock()
+	m.processedBytes += count
 }
 
 func (cw *CloudWatchMonitoringService) MillisBehindLatest(shard string, millSeconds float64) {
-	if _, ok := cw.shardMetrics[shard]; !ok {
-		cw.shardMetrics[shard] = &cloudWatchMetrics{}
-	}
-	cw.shardMetrics[shard].Lock()
-	defer cw.shardMetrics[shard].Unlock()
-	cw.shardMetrics[shard].behindLatestMillis = append(cw.shardMetrics[shard].behindLatestMillis, millSeconds)
+	m := cw.getOrCreatePerShardMetrics(shard)
+	m.Lock()
+	defer m.Unlock()
+	m.behindLatestMillis = append(m.behindLatestMillis, millSeconds)
 }
 
 func (cw *CloudWatchMonitoringService) LeaseGained(shard string) {
-	if _, ok := cw.shardMetrics[shard]; !ok {
-		cw.shardMetrics[shard] = &cloudWatchMetrics{}
-	}
-	cw.shardMetrics[shard].Lock()
-	defer cw.shardMetrics[shard].Unlock()
-	cw.shardMetrics[shard].leasesHeld++
+	m := cw.getOrCreatePerShardMetrics(shard)
+	m.Lock()
+	defer m.Unlock()
+	m.leasesHeld++
 }
 
 func (cw *CloudWatchMonitoringService) LeaseLost(shard string) {
-	if _, ok := cw.shardMetrics[shard]; !ok {
-		cw.shardMetrics[shard] = &cloudWatchMetrics{}
-	}
-	cw.shardMetrics[shard].Lock()
-	defer cw.shardMetrics[shard].Unlock()
-	cw.shardMetrics[shard].leasesHeld--
+	m := cw.getOrCreatePerShardMetrics(shard)
+	m.Lock()
+	defer m.Unlock()
+	m.leasesHeld--
 }
 
 func (cw *CloudWatchMonitoringService) LeaseRenewed(shard string) {
-	if _, ok := cw.shardMetrics[shard]; !ok {
-		cw.shardMetrics[shard] = &cloudWatchMetrics{}
-	}
-	cw.shardMetrics[shard].Lock()
-	defer cw.shardMetrics[shard].Unlock()
-	cw.shardMetrics[shard].leaseRenewals++
+	m := cw.getOrCreatePerShardMetrics(shard)
+	m.Lock()
+	defer m.Unlock()
+	m.leaseRenewals++
 }
 
 func (cw *CloudWatchMonitoringService) RecordGetRecordsTime(shard string, time float64) {
-	if _, ok := cw.shardMetrics[shard]; !ok {
-		cw.shardMetrics[shard] = &cloudWatchMetrics{}
-	}
-	cw.shardMetrics[shard].Lock()
-	defer cw.shardMetrics[shard].Unlock()
-	cw.shardMetrics[shard].getRecordsTime = append(cw.shardMetrics[shard].getRecordsTime, time)
+	m := cw.getOrCreatePerShardMetrics(shard)
+	m.Lock()
+	defer m.Unlock()
+	m.getRecordsTime = append(m.getRecordsTime, time)
 }
 func (cw *CloudWatchMonitoringService) RecordProcessRecordsTime(shard string, time float64) {
-	if _, ok := cw.shardMetrics[shard]; !ok {
-		cw.shardMetrics[shard] = &cloudWatchMetrics{}
+	m := cw.getOrCreatePerShardMetrics(shard)
+	m.Lock()
+	defer m.Unlock()
+	m.processRecordsTime = append(m.processRecordsTime, time)
+}
+
+func (cw *CloudWatchMonitoringService) getOrCreatePerShardMetrics(shard string) *cloudWatchMetrics {
+	var i interface{}
+	var ok bool
+	if i, ok = cw.shardMetrics.Load(shard); !ok {
+		m := &cloudWatchMetrics{}
+		cw.shardMetrics.Store(shard, m)
+		return m
 	}
-	cw.shardMetrics[shard].Lock()
-	defer cw.shardMetrics[shard].Unlock()
-	cw.shardMetrics[shard].processRecordsTime = append(cw.shardMetrics[shard].processRecordsTime, time)
+
+	return i.(*cloudWatchMetrics)
 }
 
 func sumFloat64(slice []float64) *float64 {
