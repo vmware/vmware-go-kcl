@@ -1,8 +1,8 @@
 package config
 
 import (
-	"clientlibrary/utils"
 	"time"
+	"vmware.com/cascade-kinesis-client/clientlibrary/utils"
 )
 
 // NewKinesisClientLibConfig to create a default KinesisClientLibConfiguration based on the required fields.

@@ -10,11 +10,11 @@ import (
 	"github.com/prometheus/common/expfmt"
 	log "github.com/sirupsen/logrus"
 
-	cfg "clientlibrary/config"
-	kc "clientlibrary/interfaces"
-	"clientlibrary/metrics"
-	"clientlibrary/utils"
 	"github.com/stretchr/testify/assert"
+	cfg "vmware.com/cascade-kinesis-client/clientlibrary/config"
+	kc "vmware.com/cascade-kinesis-client/clientlibrary/interfaces"
+	"vmware.com/cascade-kinesis-client/clientlibrary/metrics"
+	"vmware.com/cascade-kinesis-client/clientlibrary/utils"
 )
 
 const (
@@ -27,10 +27,6 @@ const specstr = `{"name":"kube-qQyhk","networking":{"containerNetworkCidr":"10.2
 const metricsSystem = "cloudwatch"
 
 func TestWorker(t *testing.T) {
-	os.Setenv("AWS_ACCESS_KEY_ID", "your aws access key id")
-	os.Setenv("AWS_SECRET_ACCESS_KEY", "your aws secret access key")
-	defer os.Unsetenv("AWS_ACCESS_KEY_ID")
-	defer os.Unsetenv("AWS_SECRET_ACCESS_KEY")
 	kclConfig := cfg.NewKinesisClientLibConfig("appName", streamName, regionName, workerID).
 		WithInitialPositionInStream(cfg.LATEST).
 		WithMaxRecords(10).

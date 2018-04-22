@@ -11,7 +11,7 @@ import (
 	"github.com/matryer/try"
 	log "github.com/sirupsen/logrus"
 
-	"clientlibrary/config"
+	"vmware.com/cascade-kinesis-client/clientlibrary/config"
 )
 
 const (

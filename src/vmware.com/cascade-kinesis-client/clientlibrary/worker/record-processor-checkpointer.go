@@ -3,7 +3,7 @@ package worker
 import (
 	"github.com/aws/aws-sdk-go/aws"
 
-	kcl "clientlibrary/interfaces"
+	kcl "vmware.com/cascade-kinesis-client/clientlibrary/interfaces"
 )
 
 type (

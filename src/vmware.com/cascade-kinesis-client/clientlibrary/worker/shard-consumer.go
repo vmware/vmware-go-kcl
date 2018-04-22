@@ -10,9 +10,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/aws/aws-sdk-go/service/kinesis/kinesisiface"
 
-	"clientlibrary/config"
-	kcl "clientlibrary/interfaces"
-	"clientlibrary/metrics"
+	"vmware.com/cascade-kinesis-client/clientlibrary/config"
+	kcl "vmware.com/cascade-kinesis-client/clientlibrary/interfaces"
+	"vmware.com/cascade-kinesis-client/clientlibrary/metrics"
 )
 
 const (
