@@ -168,12 +168,6 @@ func (w *Worker) initialize() error {
 	wg := sync.WaitGroup{}
 	w.waitGroup = &wg
 
-	err = w.getShardIDs("")
-	if err != nil {
-		log.Errorf("Error getting Kinesis shards: %s", err)
-		return err
-	}
-
 	log.Info("Initialization complete.")
 
 	return nil
@@ -199,12 +193,13 @@ func (w *Worker) newShardConsumer(shard *shardStatus) *ShardConsumer {
 // eventLoop
 func (w *Worker) eventLoop() {
 	for {
-		err := w.getShardIDs("")
+		err := w.syncShard()
 		if err != nil {
 			log.Errorf("Error getting Kinesis shards: %v", err)
 			// Back-off?
 			time.Sleep(500 * time.Millisecond)
 		}
+
 		log.Infof("Found %d shards", len(w.shardStatus))
 
 		// Count the number of leases hold by this worker
@@ -271,7 +266,9 @@ func (w *Worker) eventLoop() {
 }
 
 // List all ACTIVE shard and store them into shardStatus table
-func (w *Worker) getShardIDs(startShardID string) error {
+// If shard has been removed, need to exclude it from cached shard status.
+func (w *Worker) getShardIDs(startShardID string, shardInfo map[string]bool) error {
+	// The default pagination limit is 100.
 	args := &kinesis.DescribeStreamInput{
 		StreamName: aws.String(w.streamName),
 	}
@@ -289,6 +286,8 @@ func (w *Worker) getShardIDs(startShardID string) error {
 
 	var lastShardID string
 	for _, s := range streamDesc.StreamDescription.Shards {
+		// record avail shardId from fresh reading from Kinesis
+		shardInfo[*s.ShardId] = true
 		// found new shard
 		if _, ok := w.shardStatus[*s.ShardId]; !ok {
 			log.Debugf("Found shard with id %s", *s.ShardId)
@@ -304,11 +303,26 @@ func (w *Worker) getShardIDs(startShardID string) error {
 	}
 
 	if *streamDesc.StreamDescription.HasMoreShards {
-		err := w.getShardIDs(lastShardID)
+		err := w.getShardIDs(lastShardID, shardInfo)
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// syncShard to sync the cached shard info with actual shard info from Kinesis
+func (w *Worker) syncShard() error {
+	shardInfo := make(map[string]bool)
+	err := w.getShardIDs("", shardInfo)
+
+	for _, shard := range w.shardStatus {
+		// The cached shard no longer existed, remove it.
+		if _, ok := shardInfo[shard.ID]; !ok {
+			delete(w.shardStatus, shard.ID)
+		}
+	}
+
+	return err
 }
