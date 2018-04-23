@@ -320,7 +320,11 @@ func (w *Worker) syncShard() error {
 	for _, shard := range w.shardStatus {
 		// The cached shard no longer existed, remove it.
 		if _, ok := shardInfo[shard.ID]; !ok {
+			// remove the shard from local status cache
 			delete(w.shardStatus, shard.ID)
+			// remove the shard entry in dynamoDB as well
+			// Note: syncShard runs periodically. we don't need to do anything in case of error here.
+			w.checkpointer.RemoveLeaseInfo(shard.ID)
 		}
 	}
 
