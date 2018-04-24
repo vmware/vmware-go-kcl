@@ -1,6 +1,6 @@
-/src/gen
-/src/vendor
-!/src/vendor/manifest
+/gen
+/vendor
+!/vendor/manifest
 /bin
 /pkg
 /tmp

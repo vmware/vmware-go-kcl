@@ -86,8 +86,8 @@ targets:
     after:
       - toolchain
     watches:
-      - src/vendor/manifest
-    workdir: src
+      - vendor/manifest
+    workdir: .
     cmds:
       - gvt restore
 
@@ -95,5 +95,5 @@ settings:
   default-targets:
     - ci
   docker:
-    image: 'vmware/cascade-kcl-toolchain:latest'
-    src-volume: /home/cascade-kinesis-client
+    image: 'vmware/cascade-toolchain:0.0.9'
+    src-volume: /go/src/vmware.com/cascade-kinesis-client
