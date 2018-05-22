@@ -317,6 +317,10 @@ func (w *Worker) syncShard() error {
 	shardInfo := make(map[string]bool)
 	err := w.getShardIDs("", shardInfo)
 
+	if err != nil {
+		return err
+	}
+
 	for _, shard := range w.shardStatus {
 		// The cached shard no longer existed, remove it.
 		if _, ok := shardInfo[shard.ID]; !ok {
@@ -328,5 +332,5 @@ func (w *Worker) syncShard() error {
 		}
 	}
 
-	return err
+	return nil
 }
