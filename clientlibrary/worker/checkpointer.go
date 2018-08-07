@@ -246,7 +246,7 @@ func (checkpointer *DynamoCheckpoint) doesTableExist() bool {
 		TableName: aws.String(checkpointer.TableName),
 	}
 	_, err := checkpointer.svc.DescribeTable(input)
-	return (err == nil)
+	return err == nil
 }
 
 func (checkpointer *DynamoCheckpoint) saveItem(item map[string]*dynamodb.AttributeValue) error {

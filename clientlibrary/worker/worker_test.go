@@ -154,4 +154,11 @@ func (dd *dumpRecordProcessor) ProcessRecords(input *kc.ProcessRecordsInput) {
 
 func (dd *dumpRecordProcessor) Shutdown(input *kc.ShutdownInput) {
 	dd.t.Logf("Shutdown Reason: %v", aws.StringValue(kc.ShutdownReasonMessage(input.ShutdownReason)))
+
+	// When the value of {@link ShutdownInput#getShutdownReason()} is
+	// {@link com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason#TERMINATE} it is required that you
+	// checkpoint. Failure to do so will result in an IllegalArgumentException, and the KCL no longer making progress.
+	if input.ShutdownReason == kc.TERMINATE {
+		input.Checkpointer.Checkpoint(nil)
+	}
 }

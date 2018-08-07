@@ -146,7 +146,7 @@ func (w *Worker) initialize() error {
 
 	err := w.metricsConfig.Init(w.kclConfig.ApplicationName, w.streamName, w.workerID)
 	if err != nil {
-		log.Errorf("Failed to start monitoring service: %s", err)
+		log.Errorf("Failed to start monitoring service: %+v", err)
 	}
 	w.mService = w.metricsConfig.GetMonitoringService()
 
@@ -195,9 +195,8 @@ func (w *Worker) eventLoop() {
 	for {
 		err := w.syncShard()
 		if err != nil {
-			log.Errorf("Error getting Kinesis shards: %v", err)
-			// Back-off?
-			time.Sleep(500 * time.Millisecond)
+			log.Errorf("Error getting Kinesis shards: %+v", err)
+			time.Sleep(time.Duration(w.kclConfig.ShardSyncIntervalMillis) * time.Millisecond)
 		}
 
 		log.Infof("Found %d shards", len(w.shardStatus))
@@ -210,17 +209,17 @@ func (w *Worker) eventLoop() {
 			}
 		}
 
-		// max number of lease has not been reached
+		// max number of lease has not been reached yet
 		if counter < w.kclConfig.MaxLeasesForWorker {
 			for _, shard := range w.shardStatus {
-				// We already own this shard so carry on
+				// already owner of the shard
 				if shard.getLeaseOwner() == w.workerID {
 					continue
 				}
 
 				err := w.checkpointer.FetchCheckpoint(shard)
 				if err != nil {
-					// checkpoint may not existed yet if not an error condition.
+					// checkpoint may not existed yet is not an error condition.
 					if err != ErrSequenceIDNotFound {
 						log.Error(err)
 						// move on to next shard
@@ -249,6 +248,8 @@ func (w *Worker) eventLoop() {
 				sc := w.newShardConsumer(shard)
 				go sc.getRecords(shard)
 				w.waitGroup.Add(1)
+				// exit from for loop and not to grab more shard for now.
+				break
 			}
 		}
 
@@ -272,16 +273,18 @@ func (w *Worker) getShardIDs(startShardID string, shardInfo map[string]bool) err
 	args := &kinesis.DescribeStreamInput{
 		StreamName: aws.String(w.streamName),
 	}
+
 	if startShardID != "" {
 		args.ExclusiveStartShardId = aws.String(startShardID)
 	}
+
 	streamDesc, err := w.kc.DescribeStream(args)
 	if err != nil {
 		return err
 	}
 
 	if *streamDesc.StreamDescription.StreamStatus != "ACTIVE" {
-		return errors.New("Stream not active")
+		return errors.New("stream not active")
 	}
 
 	var lastShardID string
