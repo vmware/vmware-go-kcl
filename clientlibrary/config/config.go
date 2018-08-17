@@ -1,3 +1,36 @@
+/*
+ * Copyright (c) 2018 VMware, Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+ * associated documentation files (the "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is furnished to do
+ * so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all copies or substantial
+ * portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+ * NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+// The implementation is derived from https://github.com/awslabs/amazon-kinesis-client
+/*
+ * Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Amazon Software License (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ * http://aws.amazon.com/asl/
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
 package config
 
 import (
@@ -30,7 +63,8 @@ const (
 	// Max records to fetch from Kinesis in a single GetRecords call.
 	DEFAULT_MAX_RECORDS = 10000
 
-	// The default value for how long the {@link ShardConsumer} should sleep if no records are returned from the call to
+	// The default value for how long the {@link ShardConsumer} should sleep if no records are returned
+	// from the call to
 	DEFAULT_IDLETIME_BETWEEN_READS_MILLIS = 1000
 
 	// Don't call processRecords() on the record processor for empty record lists.
@@ -45,8 +79,8 @@ const (
 	DEFAULT_SHARD_SYNC_INTERVAL_MILLIS = 60000
 
 	// Cleanup leases upon shards completion (don't wait until they expire in Kinesis).
-	// Keeping leases takes some tracking/resources (e.g. they need to be renewed, assigned), so by default we try
-	// to delete the ones we don't need any longer.
+	// Keeping leases takes some tracking/resources (e.g. they need to be renewed, assigned), so by
+	// default we try to delete the ones we don't need any longer.
 	DEFAULT_CLEANUP_LEASES_UPON_SHARDS_COMPLETION = true
 
 	// Backoff time in milliseconds for Amazon Kinesis Client Library tasks (in the event of failures).
@@ -58,8 +92,8 @@ const (
 	// Buffer at most this many metrics before publishing to CloudWatch.
 	DEFAULT_METRICS_MAX_QUEUE_SIZE = 10000
 
-	// KCL will validate client provided sequence numbers with a call to Amazon Kinesis before checkpointing for calls
-	// to {@link RecordProcessorCheckpointer#checkpoint(String)} by default.
+	// KCL will validate client provided sequence numbers with a call to Amazon Kinesis before
+	// checkpointing for calls to {@link RecordProcessorCheckpointer#checkpoint(String)} by default.
 	DEFAULT_VALIDATE_SEQUENCE_NUMBER_BEFORE_CHECKPOINTING = true
 
 	// The max number of leases (shards) this worker should process.
