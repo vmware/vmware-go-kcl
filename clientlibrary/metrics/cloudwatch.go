@@ -97,15 +97,16 @@ func (cw *CloudWatchMonitoringService) eventloop() {
 	defer cw.waitGroup.Done()
 
 	for {
-		err := cw.flush()
-		if err != nil {
+		if err := cw.flush(); err != nil {
 			log.Errorf("Error sending metrics to CloudWatch. %+v", err)
 		}
 
 		select {
 		case <-*cw.stop:
 			log.Info("Shutting down monitoring system")
-			cw.flush()
+			if err := cw.flush(); err != nil {
+				log.Errorf("Error sending metrics to CloudWatch. %+v", err)
+			}
 			return
 		case <-time.After(time.Duration(cw.MetricsBufferTimeMillis) * time.Millisecond):
 		}

@@ -135,7 +135,10 @@ func (w *Worker) Start() error {
 
 	// Start monitoring service
 	log.Info("Starting monitoring service.")
-	w.mService.Start()
+	if err := w.mService.Start(); err != nil {
+		log.Errorf("Failed to start monitoring service: %+v", err)
+		return err
+	}
 
 	log.Info("Starting worker event loop.")
 	// entering event loop
@@ -249,7 +252,7 @@ func (w *Worker) eventLoop() {
 				if err != nil {
 					// checkpoint may not existed yet is not an error condition.
 					if err != ErrSequenceIDNotFound {
-						log.Error(err)
+						log.Errorf(" Error: %+v", err)
 						// move on to next shard
 						continue
 					}
@@ -308,10 +311,12 @@ func (w *Worker) getShardIDs(startShardID string, shardInfo map[string]bool) err
 
 	streamDesc, err := w.kc.DescribeStream(args)
 	if err != nil {
+		log.Errorf("Error in DescribeStream: %s Error: %+v Request: %s", w.streamName, err, args)
 		return err
 	}
 
 	if *streamDesc.StreamDescription.StreamStatus != "ACTIVE" {
+		log.Warnf("Stream %s is not active", w.streamName)
 		return errors.New("stream not active")
 	}
 
@@ -319,6 +324,7 @@ func (w *Worker) getShardIDs(startShardID string, shardInfo map[string]bool) err
 	for _, s := range streamDesc.StreamDescription.Shards {
 		// record avail shardId from fresh reading from Kinesis
 		shardInfo[*s.ShardId] = true
+
 		// found new shard
 		if _, ok := w.shardStatus[*s.ShardId]; !ok {
 			log.Debugf("Found shard with id %s", *s.ShardId)
@@ -336,6 +342,7 @@ func (w *Worker) getShardIDs(startShardID string, shardInfo map[string]bool) err
 	if *streamDesc.StreamDescription.HasMoreShards {
 		err := w.getShardIDs(lastShardID, shardInfo)
 		if err != nil {
+			log.Errorf("Error in getShardIDs: %s Error: %+v", lastShardID, err)
 			return err
 		}
 	}
@@ -359,7 +366,9 @@ func (w *Worker) syncShard() error {
 			delete(w.shardStatus, shard.ID)
 			// remove the shard entry in dynamoDB as well
 			// Note: syncShard runs periodically. we don't need to do anything in case of error here.
-			w.checkpointer.RemoveLeaseInfo(shard.ID)
+			if err := w.checkpointer.RemoveLeaseInfo(shard.ID); err != nil {
+				log.Errorf("Failed to remove shard lease info: %s Error: %+v", shard.ID, err)
+			}
 		}
 	}
 

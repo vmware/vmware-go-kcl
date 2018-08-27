@@ -27,7 +27,7 @@ lint() {
 
 scanast() {
     set +e
-    gas ./... > security.log 2>&1
+    gosec ./... > security.log 2>&1
     set -e
 
     local issues=$(grep -E "Severity: MEDIUM" security.log | wc -l)

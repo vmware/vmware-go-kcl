@@ -80,6 +80,7 @@ targets:
     after:
       - checkfmt
       - lint
+      - scanast
 
   deps-kcl:
     description: populate vendor packages
@@ -95,5 +96,5 @@ settings:
   default-targets:
     - ci
   docker:
-    image: 'vmware/cascade-toolchain:0.0.9'
+    image: 'vmware/go-kcl-toolchain:latest'
     src-volume: /go/src/vmware.com/cascade-kinesis-client

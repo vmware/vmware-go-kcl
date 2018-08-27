@@ -181,7 +181,7 @@ func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 					continue
 				}
 			}
-			log.Errorf("Error getting records from Kinesis that cannot be retried: %+v\nRequest: %s", err, getRecordsArgs)
+			log.Errorf("Error getting records from Kinesis that cannot be retried: %+v Request: %s", err, getRecordsArgs)
 			return err
 		}
 		retriedErrors = 0
