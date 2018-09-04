@@ -335,10 +335,9 @@ func (checkpointer *DynamoCheckpoint) getItem(shardID string) (map[string]*dynam
 }
 
 func (checkpointer *DynamoCheckpoint) removeItem(shardID string) error {
-	var item *dynamodb.DeleteItemOutput
 	err := try.Do(func(attempt int) (bool, error) {
 		var err error
-		item, err = checkpointer.svc.DeleteItem(&dynamodb.DeleteItemInput{
+		_, err = checkpointer.svc.DeleteItem(&dynamodb.DeleteItemInput{
 			TableName: aws.String(checkpointer.TableName),
 			Key: map[string]*dynamodb.AttributeValue{
 				LEASE_KEY_KEY: {
