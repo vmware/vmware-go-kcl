@@ -125,8 +125,11 @@ func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 
 	// If the shard is child shard, need to wait until the parent finished.
 	if err := sc.waitOnParentShard(shard); err != nil {
-		log.Errorf("Error in waiting for parent shard: %v to finish. Error: %+v", shard.ParentShardId, err)
-		return err
+		// If parent shard has been deleted by Kinesis system already, just ignore the error.
+		if err != ErrSequenceIDNotFound {
+			log.Errorf("Error in waiting for parent shard: %v to finish. Error: %+v", shard.ParentShardId, err)
+			return err
+		}
 	}
 
 	shardIterator, err := sc.getShardIterator(shard)
