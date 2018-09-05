@@ -120,8 +120,11 @@ func (sc *ShardConsumer) getShardIterator(shard *shardStatus) (*string, error) {
 	return iterResp.ShardIterator, nil
 }
 
+// getRecords continously poll one shard for data record
+// Precondition: it currently has the lease on the shard.
 func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 	defer sc.waitGroup.Done()
+	defer sc.releaseLease(shard)
 
 	// If the shard is child shard, need to wait until the parent finished.
 	if err := sc.waitOnParentShard(shard); err != nil {
@@ -146,17 +149,15 @@ func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 	sc.recordProcessor.Initialize(input)
 
 	recordCheckpointer := NewRecordProcessorCheckpoint(shard, sc.checkpointer)
-	var retriedErrors int
 
 	for {
+		retriedErrors := 0
 		getRecordsStartTime := time.Now()
 		if time.Now().UTC().After(shard.LeaseTimeout.Add(-5 * time.Second)) {
 			log.Debugf("Refreshing lease on shard: %s for worker: %s", shard.ID, sc.consumerID)
 			err = sc.checkpointer.GetLease(shard, sc.consumerID)
 			if err != nil {
 				if err.Error() == ErrLeaseNotAquired {
-					shard.setLeaseOwner("")
-					sc.mService.LeaseLost(shard.ID)
 					log.Warnf("Failed in acquiring lease on shard: %s for worker: %s", shard.ID, sc.consumerID)
 					return nil
 				}
@@ -187,7 +188,6 @@ func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 			log.Errorf("Error getting records from Kinesis that cannot be retried: %+v Request: %s", err, getRecordsArgs)
 			return err
 		}
-		retriedErrors = 0
 
 		// IRecordProcessorCheckpointer
 		input := &kcl.ProcessRecordsInput{
@@ -272,4 +272,12 @@ func (sc *ShardConsumer) waitOnParentShard(shard *shardStatus) error {
 
 		time.Sleep(time.Duration(sc.kclConfig.ParentShardPollIntervalMillis) * time.Millisecond)
 	}
+}
+
+// Cleanup the internal lease cache
+func (sc *ShardConsumer) releaseLease(shard *shardStatus) {
+	log.Infof("Release lease for shard %s", shard.ID)
+	shard.setLeaseOwner("")
+	// reporting lease lose metrics
+	sc.mService.LeaseLost(shard.ID)
 }

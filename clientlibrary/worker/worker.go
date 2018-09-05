@@ -232,10 +232,10 @@ func (w *Worker) eventLoop() {
 
 		log.Infof("Found %d shards", len(w.shardStatus))
 
-		// Count the number of leases hold by this worker
+		// Count the number of leases hold by this worker excluding the processed shard
 		counter := 0
 		for _, shard := range w.shardStatus {
-			if shard.getLeaseOwner() == w.workerID {
+			if shard.getLeaseOwner() == w.workerID && shard.Checkpoint != SHARD_END {
 				counter++
 			}
 		}
@@ -327,7 +327,7 @@ func (w *Worker) getShardIDs(startShardID string, shardInfo map[string]bool) err
 
 		// found new shard
 		if _, ok := w.shardStatus[*s.ShardId]; !ok {
-			log.Debugf("Found shard with id %s", *s.ShardId)
+			log.Infof("Found new shard with id %s", *s.ShardId)
 			w.shardStatus[*s.ShardId] = &shardStatus{
 				ID:            *s.ShardId,
 				ParentShardId: aws.StringValue(s.ParentShardId),
