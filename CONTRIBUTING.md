@@ -1,5 +1,3 @@
-
-
 # Contributing to vmware-go-kcl
 
 The vmware-go-kcl project team welcomes contributions from the community. If you wish to contribute code and you have not
