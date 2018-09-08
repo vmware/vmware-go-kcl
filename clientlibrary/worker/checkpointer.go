@@ -38,7 +38,7 @@ import (
 	"github.com/matryer/try"
 	log "github.com/sirupsen/logrus"
 
-	"vmware.com/cascade-kinesis-client/clientlibrary/config"
+	"github.com/vmware/vmware-go-kcl/clientlibrary/config"
 )
 
 const (

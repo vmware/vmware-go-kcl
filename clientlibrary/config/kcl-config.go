@@ -34,8 +34,8 @@
 package config
 
 import (
+	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
 	"time"
-	"vmware.com/cascade-kinesis-client/clientlibrary/utils"
 )
 
 // NewKinesisClientLibConfig to create a default KinesisClientLibConfiguration based on the required fields.

@@ -29,10 +29,10 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/stretchr/testify/assert"
-	cfg "vmware.com/cascade-kinesis-client/clientlibrary/config"
-	kc "vmware.com/cascade-kinesis-client/clientlibrary/interfaces"
-	"vmware.com/cascade-kinesis-client/clientlibrary/metrics"
-	"vmware.com/cascade-kinesis-client/clientlibrary/utils"
+	cfg "github.com/vmware/vmware-go-kcl/clientlibrary/config"
+	kc "github.com/vmware/vmware-go-kcl/clientlibrary/interfaces"
+	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
+	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
 )
 
 const (

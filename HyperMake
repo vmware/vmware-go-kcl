@@ -97,4 +97,4 @@ settings:
     - ci
   docker:
     image: 'vmware/go-kcl-toolchain:latest'
-    src-volume: /go/src/vmware.com/cascade-kinesis-client
+    src-volume: /go/src/github.com/vmware/vmware-go-kcl

@@ -43,9 +43,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/aws/aws-sdk-go/service/kinesis/kinesisiface"
 
-	"vmware.com/cascade-kinesis-client/clientlibrary/config"
-	kcl "vmware.com/cascade-kinesis-client/clientlibrary/interfaces"
-	"vmware.com/cascade-kinesis-client/clientlibrary/metrics"
+	"github.com/vmware/vmware-go-kcl/clientlibrary/config"
+	kcl "github.com/vmware/vmware-go-kcl/clientlibrary/interfaces"
+	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
 )
 
 type shardStatus struct {

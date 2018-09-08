@@ -21,7 +21,7 @@ package worker
 import (
 	"github.com/aws/aws-sdk-go/aws"
 
-	kcl "vmware.com/cascade-kinesis-client/clientlibrary/interfaces"
+	kcl "github.com/vmware/vmware-go-kcl/clientlibrary/interfaces"
 )
 
 type (
