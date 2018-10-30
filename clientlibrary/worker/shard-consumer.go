@@ -29,6 +29,7 @@ package worker
 
 import (
 	log "github.com/sirupsen/logrus"
+	"math"
 	"sync"
 	"time"
 
@@ -149,9 +150,9 @@ func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 	sc.recordProcessor.Initialize(input)
 
 	recordCheckpointer := NewRecordProcessorCheckpoint(shard, sc.checkpointer)
+	retriedErrors := 0
 
 	for {
-		retriedErrors := 0
 		getRecordsStartTime := time.Now()
 		if time.Now().UTC().After(shard.LeaseTimeout.Add(-5 * time.Second)) {
 			log.Debugf("Refreshing lease on shard: %s for worker: %s", shard.ID, sc.consumerID)
@@ -181,13 +182,17 @@ func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 					log.Errorf("Error getting records from shard %v: %+v", shard.ID, err)
 					retriedErrors++
 					// exponential backoff
-					time.Sleep(time.Duration(2^retriedErrors*100) * time.Millisecond)
+					// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Programming.Errors.html#Programming.Errors.RetryAndBackoff
+					time.Sleep(time.Duration(math.Exp2(retriedErrors)*100) * time.Millisecond)
 					continue
 				}
 			}
 			log.Errorf("Error getting records from Kinesis that cannot be retried: %+v Request: %s", err, getRecordsArgs)
 			return err
 		}
+
+		// reset the retry count after success
+		retriedErrors = 0
 
 		// IRecordProcessorCheckpointer
 		input := &kcl.ProcessRecordsInput{

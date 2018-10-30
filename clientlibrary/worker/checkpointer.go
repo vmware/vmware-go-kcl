@@ -29,6 +29,7 @@ package worker
 
 import (
 	"errors"
+	"math"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -300,7 +301,7 @@ func (checkpointer *DynamoCheckpoint) putItem(input *dynamodb.PutItemInput) erro
 				awsErr.Code() == dynamodb.ErrCodeInternalServerError &&
 					attempt < checkpointer.Retries {
 				// Backoff time as recommended by https://docs.aws.amazon.com/general/latest/gr/api-retries.html
-				time.Sleep(time.Duration(2^attempt*100) * time.Millisecond)
+				time.Sleep(time.Duration(math.Exp2(float64(attempt))*100) * time.Millisecond)
 				return true, err
 			}
 		}
@@ -325,7 +326,7 @@ func (checkpointer *DynamoCheckpoint) getItem(shardID string) (map[string]*dynam
 				awsErr.Code() == dynamodb.ErrCodeInternalServerError &&
 					attempt < checkpointer.Retries {
 				// Backoff time as recommended by https://docs.aws.amazon.com/general/latest/gr/api-retries.html
-				time.Sleep(time.Duration(2^attempt*100) * time.Millisecond)
+				time.Sleep(time.Duration(math.Exp2(float64(attempt))*100) * time.Millisecond)
 				return true, err
 			}
 		}
@@ -350,7 +351,7 @@ func (checkpointer *DynamoCheckpoint) removeItem(shardID string) error {
 				awsErr.Code() == dynamodb.ErrCodeInternalServerError &&
 					attempt < checkpointer.Retries {
 				// Backoff time as recommended by https://docs.aws.amazon.com/general/latest/gr/api-retries.html
-				time.Sleep(time.Duration(2^attempt*100) * time.Millisecond)
+				time.Sleep(time.Duration(math.Exp2(float64(attempt))*100) * time.Millisecond)
 				return true, err
 			}
 		}
