@@ -183,7 +183,7 @@ func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 					retriedErrors++
 					// exponential backoff
 					// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Programming.Errors.html#Programming.Errors.RetryAndBackoff
-					time.Sleep(time.Duration(math.Exp2(retriedErrors)*100) * time.Millisecond)
+					time.Sleep(time.Duration(math.Exp2(float64(retriedErrors))*100) * time.Millisecond)
 					continue
 				}
 			}
