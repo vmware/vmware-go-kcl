@@ -286,9 +286,9 @@ func (checkpointer *DynamoCheckpoint) saveItem(item map[string]*dynamodb.Attribu
 
 func (checkpointer *DynamoCheckpoint) conditionalUpdate(conditionExpression string, expressionAttributeValues map[string]*dynamodb.AttributeValue, item map[string]*dynamodb.AttributeValue) error {
 	return checkpointer.putItem(&dynamodb.PutItemInput{
-		ConditionExpression: aws.String(conditionExpression),
-		TableName:           aws.String(checkpointer.TableName),
-		Item:                item,
+		ConditionExpression:       aws.String(conditionExpression),
+		TableName:                 aws.String(checkpointer.TableName),
+		Item:                      item,
 		ExpressionAttributeValues: expressionAttributeValues,
 	})
 }
