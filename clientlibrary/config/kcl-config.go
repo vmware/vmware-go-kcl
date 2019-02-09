@@ -78,15 +78,15 @@ func NewKinesisClientLibConfig(applicationName, streamName, regionName, workerID
 	}
 }
 
-// WithKinesisAWSEndpoint is used to provide an alternative Kinesis AWS endpoint
-func (c *KinesisClientLibConfiguration) WithKinesisAWSEndpoint(awsEndpoint string) *KinesisClientLibConfiguration {
-	c.AWSEndpointKinesis = awsEndpoint
+// WithKinesisEndpoint is used to provide an alternative Kinesis endpoint
+func (c *KinesisClientLibConfiguration) WithKinesisEndpoint(kinesisEndpoint string) *KinesisClientLibConfiguration {
+	c.KinesisEndpoint = kinesisEndpoint
 	return c
 }
 
-// WithDynamoDBAWSEndpoint is used to provide an alternative DynamoDB AWS endpoint
-func (c *KinesisClientLibConfiguration) WithDynamoDBAWSEndpoint(awsEndpoint string) *KinesisClientLibConfiguration {
-	c.AWSEndpointDynamoDB = awsEndpoint
+// WithDynamoDBEndpoint is used to provide an alternative DynamoDB endpoint
+func (c *KinesisClientLibConfiguration) WithDynamoDBEndpoint(dynamoDBEndpoint string) *KinesisClientLibConfiguration {
+	c.DynamoDBEndpoint = dynamoDBEndpoint
 	return c
 }
 
