@@ -158,6 +158,14 @@ type (
 		// ApplicationName is name of application. Kinesis allows multiple applications to consume the same stream.
 		ApplicationName string
 
+		// DynamoDBEndpoint is an optional endpoint URL that overrides the default generated endpoint for a DynamoDB client.
+		// If this is empty, the default generated endpoint will be used.
+		DynamoDBEndpoint string
+
+		// KinesisEndpoint is an optional endpoint URL that overrides the default generated endpoint for a Kinesis client.
+		// If this is empty, the default generated endpoint will be used.
+		KinesisEndpoint string
+
 		// TableName is name of the dynamo db table for managing kinesis stream default to ApplicationName
 		TableName string
 

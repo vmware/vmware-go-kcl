@@ -34,8 +34,9 @@
 package config
 
 import (
-	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
 	"time"
+
+	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
 )
 
 // NewKinesisClientLibConfig to create a default KinesisClientLibConfiguration based on the required fields.
@@ -75,6 +76,18 @@ func NewKinesisClientLibConfig(applicationName, streamName, regionName, workerID
 		InitialLeaseTableWriteCapacity:                   DEFAULT_INITIAL_LEASE_TABLE_WRITE_CAPACITY,
 		SkipShardSyncAtWorkerInitializationIfLeasesExist: DEFAULT_SKIP_SHARD_SYNC_AT_STARTUP_IF_LEASES_EXIST,
 	}
+}
+
+// WithKinesisEndpoint is used to provide an alternative Kinesis endpoint
+func (c *KinesisClientLibConfiguration) WithKinesisEndpoint(kinesisEndpoint string) *KinesisClientLibConfiguration {
+	c.KinesisEndpoint = kinesisEndpoint
+	return c
+}
+
+// WithDynamoDBEndpoint is used to provide an alternative DynamoDB endpoint
+func (c *KinesisClientLibConfiguration) WithDynamoDBEndpoint(dynamoDBEndpoint string) *KinesisClientLibConfiguration {
+	c.DynamoDBEndpoint = dynamoDBEndpoint
+	return c
 }
 
 // WithTableName to provide alternative lease table in DynamoDB

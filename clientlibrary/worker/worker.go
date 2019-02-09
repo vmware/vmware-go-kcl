@@ -29,12 +29,13 @@ package worker
 
 import (
 	"errors"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -112,11 +113,17 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 
 	// create session for Kinesis
 	log.Info("Creating Kinesis session")
-	s := session.New(&aws.Config{Region: aws.String(w.regionName)})
+	s := session.New(&aws.Config{
+		Region:   aws.String(w.regionName),
+		Endpoint: &kclConfig.KinesisEndpoint,
+	})
 	w.kc = kinesis.New(s)
 
 	log.Info("Creating DynamoDB session")
-	s = session.New(&aws.Config{Region: aws.String(w.regionName)})
+	s = session.New(&aws.Config{
+		Region:   aws.String(w.regionName),
+		Endpoint: &kclConfig.DynamoDBEndpoint,
+	})
 	w.dynamo = dynamodb.New(s)
 	w.checkpointer = NewDynamoCheckpoint(w.dynamo, kclConfig)
 
@@ -329,9 +336,9 @@ func (w *Worker) getShardIDs(startShardID string, shardInfo map[string]bool) err
 		if _, ok := w.shardStatus[*s.ShardId]; !ok {
 			log.Infof("Found new shard with id %s", *s.ShardId)
 			w.shardStatus[*s.ShardId] = &shardStatus{
-				ID:            *s.ShardId,
-				ParentShardId: aws.StringValue(s.ParentShardId),
-				mux:           &sync.Mutex{},
+				ID:                     *s.ShardId,
+				ParentShardId:          aws.StringValue(s.ParentShardId),
+				mux:                    &sync.Mutex{},
 				StartingSequenceNumber: aws.StringValue(s.SequenceNumberRange.StartingSequenceNumber),
 				EndingSequenceNumber:   aws.StringValue(s.SequenceNumberRange.EndingSequenceNumber),
 			}
