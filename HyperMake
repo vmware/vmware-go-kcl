@@ -15,9 +15,15 @@ targets:
     description: placeholder for additional toolchain dependencies
 
   deps:
-    description: setup dependencies
+    description: download dependencies to local cache
     after:
-      - 'deps-*'
+      - toolchain
+    watches:
+      - go.mod
+    cmds:
+      - export GO111MODULE=on
+      - go mod download
+      - go mod vendor
 
   gen:
     description: generate source code
@@ -81,16 +87,6 @@ targets:
       - checkfmt
       - lint
       - scanast
-
-  deps-kcl:
-    description: populate vendor packages
-    after:
-      - toolchain
-    watches:
-      - vendor/manifest
-    workdir: .
-    cmds:
-      - gvt restore
 
 settings:
   default-targets:
