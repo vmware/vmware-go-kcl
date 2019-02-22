@@ -25,11 +25,6 @@ targets:
       - go mod download
       - go mod vendor
 
-  gen:
-    description: generate source code
-    after:
-      - 'gen-*'
-
   build:
     description: build source code
     after:
@@ -39,7 +34,7 @@ targets:
     description: run unit tests
     after:
       - deps
-      - gen
+      - check
     always: true
     cmds:
       - ./support/scripts/test.sh
@@ -47,6 +42,7 @@ targets:
   ci:
     description: run CI tests
     after:
+      - deps
       - check
     cmds:
       - ./support/scripts/ci.sh

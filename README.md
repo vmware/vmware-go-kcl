@@ -18,7 +18,7 @@ The **VMware Kinesis Client Library for GO** (VMware-Go-KCL) enables Go develope
 - Install [HyperMake](https://evo-cloud.github.io/hmake)
 - Config [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html)
 
-Make sure hmake is version is 1.3.1 or above
+Make sure hmake is version 1.3.1 or above and go is version 1.11 or above
 
 ```sh
 hmake --version
