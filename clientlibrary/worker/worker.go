@@ -39,6 +39,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	"github.com/aws/aws-sdk-go/service/kinesis"
@@ -83,6 +84,8 @@ type Worker struct {
 	streamName string
 	regionName string
 	workerID   string
+	kinesisIAMRoleArn string
+	dynamodbIAMRoleArn string
 
 	processorFactory kcl.IRecordProcessorFactory
 	kclConfig        *config.KinesisClientLibConfiguration
@@ -109,22 +112,42 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 		processorFactory: factory,
 		kclConfig:        kclConfig,
 		metricsConfig:    metricsConfig,
+		kinesisIAMRoleArn:   kclConfig.KinesisIAMRoleArn,
+		dynamodbIAMRoleArn:  kclConfig.DynamodbIAMRoleArn,
+		
 	}
 
-	// create session for Kinesis
 	log.Info("Creating Kinesis session")
-	s := session.New(&aws.Config{
-		Region:   aws.String(w.regionName),
-		Endpoint: &kclConfig.KinesisEndpoint,
-	})
-	w.kc = kinesis.New(s)
+	if len(w.kinesisIAMRoleArn) > 0 {
+		// create session for Kinesis
+		s := session.Must(session.NewSession())
+		creds := stscreds.NewCredentials(s, w.kinesisIAMRoleArn)
+		w.kc = kinesis.New(s, &aws.Config{Credentials: creds, Region:   aws.String(w.regionName),
+				Endpoint: &kclConfig.KinesisEndpoint,})
+    } else {
 
+		// create session for Kinesis
+		s := session.New(&aws.Config{
+			Region:   aws.String(w.regionName),
+			Endpoint: &kclConfig.KinesisEndpoint,
+			})
+		w.kc = kinesis.New(s)
+    }
 	log.Info("Creating DynamoDB session")
-	s = session.New(&aws.Config{
-		Region:   aws.String(w.regionName),
-		Endpoint: &kclConfig.DynamoDBEndpoint,
-	})
-	w.dynamo = dynamodb.New(s)
+	if len(w.dynamodbIAMRoleArn) > 0 {
+		// create session for Dynamodb
+		s := session.Must(session.NewSession())
+		creds := stscreds.NewCredentials(s, w.dynamodbIAMRoleArn)
+		w.dynamo = dynamodb.New(s, &aws.Config{Credentials: creds, Region:   aws.String(w.regionName),
+				Endpoint: &kclConfig.DynamoDBEndpoint,})
+				log.Info(w.dynamodbIAMRoleArn)
+    } else {
+		s := session.New(&aws.Config{
+				Region:   aws.String(w.regionName),
+				Endpoint: &kclConfig.DynamoDBEndpoint,
+			})
+		w.dynamo = dynamodb.New(s)
+	}
 	w.checkpointer = NewDynamoCheckpoint(w.dynamo, kclConfig)
 
 	if w.metricsConfig == nil {

@@ -33,8 +33,12 @@ func TestConfig(t *testing.T) {
 		WithCallProcessRecordsEvenForEmptyRecordList(true).
 		WithTaskBackoffTimeMillis(10).
 		WithMetricsBufferTimeMillis(500).
-		WithMetricsMaxQueueSize(200)
+		WithMetricsMaxQueueSize(200).
+		WithKinesisIAMRoleArn("arn:aws:iam::333333333333:role/KinesisRole").
+      	WithDynamodbIAMRoleArn("arn:aws:iam::333333333333:role/DynamoDBRole")
 
 	assert.Equal(t, "appName", kclConfig.ApplicationName)
 	assert.Equal(t, 500, kclConfig.FailoverTimeMillis)
+	assert.Equal(t, "arn:aws:iam::333333333333:role/DynamoDBRole", kclConfig.DynamodbIAMRoleArn)
+	assert.Equal(t, "arn:aws:iam::333333333333:role/KinesisRole", kclConfig.KinesisIAMRoleArn)
 }
