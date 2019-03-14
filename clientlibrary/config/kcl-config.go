@@ -184,3 +184,18 @@ func (c *KinesisClientLibConfiguration) WithMetricsMaxQueueSize(metricsMaxQueueS
 	c.MetricsMaxQueueSize = metricsMaxQueueSize
 	return c
 }
+
+// WithKinesisIAMRoleArn configures Kinesis IAM Role ARN
+func (c *KinesisClientLibConfiguration) WithKinesisIAMRoleArn(kinesisIAMRoleArn string) *KinesisClientLibConfiguration {
+	checkIsValueNotEmpty("KinesisIAMRoleArn", kinesisIAMRoleArn)
+	c.KinesisIAMRoleArn = kinesisIAMRoleArn
+	return c
+}
+
+// WithDynamodbIAMRoleArn configures Dynamodb IAM Role ARN
+func (c *KinesisClientLibConfiguration) WithDynamodbIAMRoleArn(dynamodbIAMRoleArn string) *KinesisClientLibConfiguration {
+	checkIsValueNotEmpty("DynamodbIAMRoleArn", dynamodbIAMRoleArn)
+	c.DynamodbIAMRoleArn = dynamodbIAMRoleArn
+	return c
+}
+
