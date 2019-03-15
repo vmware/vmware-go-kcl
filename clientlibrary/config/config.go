@@ -157,7 +157,6 @@ type (
 	KinesisClientLibConfiguration struct {
 		// ApplicationName is name of application. Kinesis allows multiple applications to consume the same stream.
 		ApplicationName string
-		
 
 		// DynamoDBEndpoint is an optional endpoint URL that overrides the default generated endpoint for a DynamoDB client.
 		// If this is empty, the default generated endpoint will be used.
@@ -173,11 +172,8 @@ type (
 		// StreamName is the name of Kinesis stream
 		StreamName string
 
-		// KinesisIAMRoleArn is the IAM Role to access Kinesis stream
-		KinesisIAMRoleArn string
-	
-		// DynamodbIAMRoleArn is the IAM Role to access dynamodb stream
-		DynamodbIAMRoleArn string
+		// KclAMRoleArn is the IAM Role to use KCL
+		KclIAMRoleArn string
 
 		// WorkerID used to distinguish different workers/processes of a Kinesis application
 		WorkerID string
