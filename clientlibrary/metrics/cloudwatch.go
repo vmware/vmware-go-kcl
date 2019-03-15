@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
@@ -43,6 +44,7 @@ type CloudWatchMonitoringService struct {
 	KinesisStream string
 	WorkerID      string
 	Region        string
+	KclIAMRoleArn string
 
 	// control how often to pusblish to CloudWatch
 	MetricsBufferTimeMillis int
@@ -66,8 +68,14 @@ type cloudWatchMetrics struct {
 }
 
 func (cw *CloudWatchMonitoringService) Init() error {
-	s := session.New(&aws.Config{Region: aws.String(cw.Region)})
-	cw.svc = cloudwatch.New(s)
+	if len(cw.KclIAMRoleArn) > 0 {
+		s := session.Must(session.NewSession())
+		creds := stscreds.NewCredentials(s, cw.KclIAMRoleArn)
+		cw.svc = cloudwatch.New(s, &aws.Config{Credentials: creds, Region: aws.String(cw.Region)})
+	} else {
+		s := session.New(&aws.Config{Region: aws.String(cw.Region)})
+		cw.svc = cloudwatch.New(s)
+	}
 	cw.shardMetrics = new(sync.Map)
 
 	stopChan := make(chan struct{})

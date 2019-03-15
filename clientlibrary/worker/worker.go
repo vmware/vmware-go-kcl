@@ -81,11 +81,10 @@ func (ss *shardStatus) setLeaseOwner(owner string) {
  * the shards).
  */
 type Worker struct {
-	streamName         string
-	regionName         string
-	workerID           string
-	kinesisIAMRoleArn  string
-	dynamodbIAMRoleArn string
+	streamName    string
+	regionName    string
+	workerID      string
+	kclIAMRoleArn string
 
 	processorFactory kcl.IRecordProcessorFactory
 	kclConfig        *config.KinesisClientLibConfiguration
@@ -106,21 +105,20 @@ type Worker struct {
 // NewWorker constructs a Worker instance for processing Kinesis stream data.
 func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisClientLibConfiguration, metricsConfig *metrics.MonitoringConfiguration) *Worker {
 	w := &Worker{
-		streamName:         kclConfig.StreamName,
-		regionName:         kclConfig.RegionName,
-		workerID:           kclConfig.WorkerID,
-		processorFactory:   factory,
-		kclConfig:          kclConfig,
-		metricsConfig:      metricsConfig,
-		kinesisIAMRoleArn:  kclConfig.KinesisIAMRoleArn,
-		dynamodbIAMRoleArn: kclConfig.DynamodbIAMRoleArn,
+		streamName:       kclConfig.StreamName,
+		regionName:       kclConfig.RegionName,
+		workerID:         kclConfig.WorkerID,
+		processorFactory: factory,
+		kclConfig:        kclConfig,
+		metricsConfig:    metricsConfig,
+		kclIAMRoleArn:    kclConfig.KclIAMRoleArn,
 	}
 
 	log.Info("Creating Kinesis session")
-	if len(w.kinesisIAMRoleArn) > 0 {
+	if len(w.kclIAMRoleArn) > 0 {
 		// create session for Kinesis
 		s := session.Must(session.NewSession())
-		creds := stscreds.NewCredentials(s, w.kinesisIAMRoleArn)
+		creds := stscreds.NewCredentials(s, w.kclIAMRoleArn)
 		w.kc = kinesis.New(s, &aws.Config{Credentials: creds, Region: aws.String(w.regionName),
 			Endpoint: &kclConfig.KinesisEndpoint})
 	} else {
@@ -133,13 +131,13 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 		w.kc = kinesis.New(s)
 	}
 	log.Info("Creating DynamoDB session")
-	if len(w.dynamodbIAMRoleArn) > 0 {
+	if len(w.kclIAMRoleArn) > 0 {
 		// create session for Dynamodb
 		s := session.Must(session.NewSession())
-		creds := stscreds.NewCredentials(s, w.dynamodbIAMRoleArn)
+		creds := stscreds.NewCredentials(s, w.kclIAMRoleArn)
 		w.dynamo = dynamodb.New(s, &aws.Config{Credentials: creds, Region: aws.String(w.regionName),
 			Endpoint: &kclConfig.DynamoDBEndpoint})
-		log.Info(w.dynamodbIAMRoleArn)
+		log.Info(w.kclIAMRoleArn)
 	} else {
 		s := session.New(&aws.Config{
 			Region:   aws.String(w.regionName),
@@ -150,7 +148,7 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 	w.checkpointer = NewDynamoCheckpoint(w.dynamo, kclConfig)
 
 	if w.metricsConfig == nil {
-		w.metricsConfig = &metrics.MonitoringConfiguration{MonitoringService: ""}
+		w.metricsConfig = &metrics.MonitoringConfiguration{MonitoringService: "", KclIAMRoleArn: w.kclIAMRoleArn}
 	}
 	return w
 }

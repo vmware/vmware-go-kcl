@@ -35,6 +35,7 @@ import (
 type MonitoringConfiguration struct {
 	MonitoringService string // Type of monitoring to expose. Supported types are "prometheus"
 	Region            string
+	KclIAMRoleArn     string
 	Prometheus        PrometheusMonitoringService
 	CloudWatch        CloudWatchMonitoringService
 	service           MonitoringService
@@ -72,6 +73,7 @@ func (m *MonitoringConfiguration) Init(nameSpace, streamName string, workerID st
 		m.CloudWatch.KinesisStream = streamName
 		m.CloudWatch.WorkerID = workerID
 		m.CloudWatch.Region = m.Region
+		m.CloudWatch.KclIAMRoleArn = m.KclIAMRoleArn
 		m.service = &m.CloudWatch
 	default:
 		return fmt.Errorf("Invalid monitoring service type %s", m.MonitoringService)
