@@ -19,6 +19,9 @@
 package worker
 
 import (
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"net/http"
 	"os"
 	"testing"
@@ -50,8 +53,55 @@ func TestWorker(t *testing.T) {
 		WithMaxRecords(10).
 		WithMaxLeasesForWorker(1).
 		WithShardSyncIntervalMillis(5000).
-		WithFailoverTimeMillis(300000)
+		WithFailoverTimeMillis(300000).
+		WithMetricsBufferTimeMillis(10000).
+		WithMetricsMaxQueueSize(20)
 
+	runTest(kclConfig, t)
+}
+
+func TestWorkerStatic(t *testing.T) {
+	t.Skip("Need to provide actual credentials")
+
+	creds := credentials.NewStaticCredentials("AccessKeyId", "SecretAccessKey", "")
+
+	kclConfig := cfg.NewKinesisClientLibConfigWithCredential("appName", streamName, regionName, workerID, creds).
+		WithInitialPositionInStream(cfg.LATEST).
+		WithMaxRecords(10).
+		WithMaxLeasesForWorker(1).
+		WithShardSyncIntervalMillis(5000).
+		WithFailoverTimeMillis(300000).
+		WithMetricsBufferTimeMillis(10000).
+		WithMetricsMaxQueueSize(20)
+
+	runTest(kclConfig, t)
+}
+
+func TestWorkerAssumeRole(t *testing.T) {
+	t.Skip("Need to provide actual roleARN")
+
+	// Initial credentials loaded from SDK's default credential chain. Such as
+	// the environment, shared credentials (~/.aws/credentials), or EC2 Instance
+	// Role. These credentials will be used to to make the STS Assume Role API.
+	sess := session.Must(session.NewSession())
+
+	// Create the credentials from AssumeRoleProvider to assume the role
+	// referenced by the "myRoleARN" ARN.
+	creds := stscreds.NewCredentials(sess, "arn:aws:iam::*:role/kcl-test-publisher")
+
+	kclConfig := cfg.NewKinesisClientLibConfigWithCredential("appName", streamName, regionName, workerID, creds).
+		WithInitialPositionInStream(cfg.LATEST).
+		WithMaxRecords(10).
+		WithMaxLeasesForWorker(1).
+		WithShardSyncIntervalMillis(5000).
+		WithFailoverTimeMillis(300000).
+		WithMetricsBufferTimeMillis(10000).
+		WithMetricsMaxQueueSize(20)
+
+	runTest(kclConfig, t)
+}
+
+func runTest(kclConfig *cfg.KinesisClientLibConfiguration, t *testing.T) {
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
 
@@ -59,7 +109,7 @@ func TestWorker(t *testing.T) {
 	assert.Equal(t, streamName, kclConfig.StreamName)
 
 	// configure cloudwatch as metrics system
-	metricsConfig := getMetricsConfig(metricsSystem)
+	metricsConfig := getMetricsConfig(kclConfig, metricsSystem)
 
 	worker := NewWorker(recordProcessorFactory(t), kclConfig, metricsConfig)
 	assert.Equal(t, regionName, worker.regionName)
@@ -100,15 +150,16 @@ func TestWorker(t *testing.T) {
 }
 
 // configure different metrics system
-func getMetricsConfig(service string) *metrics.MonitoringConfiguration {
+func getMetricsConfig(kclConfig *cfg.KinesisClientLibConfiguration, service string) *metrics.MonitoringConfiguration {
 	if service == "cloudwatch" {
 		return &metrics.MonitoringConfiguration{
 			MonitoringService: "cloudwatch",
 			Region:            regionName,
 			CloudWatch: metrics.CloudWatchMonitoringService{
+				Credentials: kclConfig.CloudWatchCredentials,
 				// Those value should come from kclConfig
-				MetricsBufferTimeMillis: 10000,
-				MetricsMaxQueueSize:     20,
+				MetricsBufferTimeMillis: kclConfig.MetricsBufferTimeMillis,
+				MetricsMaxQueueSize:     kclConfig.MetricsMaxQueueSize,
 			},
 		}
 	}
