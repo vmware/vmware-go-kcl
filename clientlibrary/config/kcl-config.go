@@ -34,6 +34,7 @@
 package config
 
 import (
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"time"
 
 	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
@@ -41,6 +42,19 @@ import (
 
 // NewKinesisClientLibConfig to create a default KinesisClientLibConfiguration based on the required fields.
 func NewKinesisClientLibConfig(applicationName, streamName, regionName, workerID string) *KinesisClientLibConfiguration {
+	return NewKinesisClientLibConfigWithCredentials(applicationName, streamName, regionName, workerID,
+		nil, nil, nil)
+}
+
+// NewKinesisClientLibConfig to create a default KinesisClientLibConfiguration based on the required fields.
+func NewKinesisClientLibConfigWithCredential(applicationName, streamName, regionName, workerID string,
+	creds *credentials.Credentials) *KinesisClientLibConfiguration {
+	return NewKinesisClientLibConfigWithCredentials(applicationName, streamName, regionName, workerID, creds, creds, creds)
+}
+
+// NewKinesisClientLibConfig to create a default KinesisClientLibConfiguration based on the required fields.
+func NewKinesisClientLibConfigWithCredentials(applicationName, streamName, regionName, workerID string,
+	kiniesisCreds, dynamodbCreds, cloudwatchCreds *credentials.Credentials) *KinesisClientLibConfiguration {
 	checkIsValueNotEmpty("ApplicationName", applicationName)
 	checkIsValueNotEmpty("StreamName", streamName)
 	checkIsValueNotEmpty("RegionName", regionName)
@@ -52,6 +66,9 @@ func NewKinesisClientLibConfig(applicationName, streamName, regionName, workerID
 	// populate the KCL configuration with default values
 	return &KinesisClientLibConfiguration{
 		ApplicationName:                                  applicationName,
+		KinesisCredentials:                               kiniesisCreds,
+		DynamoDBCredentials:                              dynamodbCreds,
+		CloudWatchCredentials:                            cloudwatchCreds,
 		TableName:                                        applicationName,
 		StreamName:                                       streamName,
 		RegionName:                                       regionName,

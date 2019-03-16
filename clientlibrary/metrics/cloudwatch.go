@@ -28,6 +28,7 @@
 package metrics
 
 import (
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"sync"
 	"time"
 
@@ -43,6 +44,7 @@ type CloudWatchMonitoringService struct {
 	KinesisStream string
 	WorkerID      string
 	Region        string
+	Credentials   *credentials.Credentials
 
 	// control how often to pusblish to CloudWatch
 	MetricsBufferTimeMillis int
@@ -66,7 +68,13 @@ type cloudWatchMetrics struct {
 }
 
 func (cw *CloudWatchMonitoringService) Init() error {
-	s := session.New(&aws.Config{Region: aws.String(cw.Region)})
+	cfg := &aws.Config{Region: aws.String(cw.Region)}
+	cfg.Credentials = cw.Credentials
+	s, err := session.NewSession(cfg)
+	if err != nil {
+		log.Errorf("Error in creating session for cloudwatch. %+v", err)
+		return err
+	}
 	cw.svc = cloudwatch.New(s)
 	cw.shardMetrics = new(sync.Map)
 

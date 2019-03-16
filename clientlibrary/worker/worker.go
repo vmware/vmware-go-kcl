@@ -113,21 +113,37 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 
 	// create session for Kinesis
 	log.Info("Creating Kinesis session")
-	s := session.New(&aws.Config{
-		Region:   aws.String(w.regionName),
-		Endpoint: &kclConfig.KinesisEndpoint,
+
+	s, err := session.NewSession(&aws.Config{
+		Region:      aws.String(w.regionName),
+		Endpoint:    &kclConfig.KinesisEndpoint,
+		Credentials: kclConfig.KinesisCredentials,
 	})
+
+	if err != nil {
+		// no need to move forward
+		log.Fatalf("Failed in getting Kinesis session for creating Worker: %+v", err)
+	}
 	w.kc = kinesis.New(s)
 
 	log.Info("Creating DynamoDB session")
-	s = session.New(&aws.Config{
-		Region:   aws.String(w.regionName),
-		Endpoint: &kclConfig.DynamoDBEndpoint,
+
+	s, err = session.NewSession(&aws.Config{
+		Region:      aws.String(w.regionName),
+		Endpoint:    &kclConfig.DynamoDBEndpoint,
+		Credentials: kclConfig.DynamoDBCredentials,
 	})
+
+	if err != nil {
+		// no need to move forward
+		log.Fatalf("Failed in getting DynamoDB session for creating Worker: %+v", err)
+	}
+
 	w.dynamo = dynamodb.New(s)
 	w.checkpointer = NewDynamoCheckpoint(w.dynamo, kclConfig)
 
 	if w.metricsConfig == nil {
+		// "" means noop monitor service. i.e. not emitting any metrics.
 		w.metricsConfig = &metrics.MonitoringConfiguration{MonitoringService: ""}
 	}
 	return w

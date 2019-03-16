@@ -40,6 +40,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	creds "github.com/aws/aws-sdk-go/aws/credentials"
 )
 
 const (
@@ -165,6 +166,15 @@ type (
 		// KinesisEndpoint is an optional endpoint URL that overrides the default generated endpoint for a Kinesis client.
 		// If this is empty, the default generated endpoint will be used.
 		KinesisEndpoint string
+
+		// KinesisCredentials is used to access Kinesis
+		KinesisCredentials *creds.Credentials
+
+		// DynamoDBCredentials is used to access DynamoDB
+		DynamoDBCredentials *creds.Credentials
+
+		// CloudWatchCredentials is used to access CloudWatch
+		CloudWatchCredentials *creds.Credentials
 
 		// TableName is name of the dynamo db table for managing kinesis stream default to ApplicationName
 		TableName string
