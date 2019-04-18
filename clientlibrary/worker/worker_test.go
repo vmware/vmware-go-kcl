@@ -19,13 +19,14 @@
 package worker
 
 import (
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"net/http"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+	"github.com/aws/aws-sdk-go/aws/session"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/prometheus/common/expfmt"
@@ -39,9 +40,11 @@ import (
 )
 
 const (
-	streamName = "kcl-test"
-	regionName = "us-west-2"
-	workerID   = "test-worker"
+	streamName       = "kcl-test"
+	regionName       = "us-west-2"
+	workerID         = "test-worker"
+	tableName        = "kcl-test"
+	checkpointerType = "dynamo"
 )
 
 const specstr = `{"name":"kube-qQyhk","networking":{"containerNetworkCidr":"10.2.0.0/16"},"orgName":"BVT-Org-cLQch","projectName":"project-tDSJd","serviceLevel":"DEVELOPER","size":{"count":1},"version":"1.8.1-4"}`
@@ -55,7 +58,8 @@ func TestWorker(t *testing.T) {
 		WithShardSyncIntervalMillis(5000).
 		WithFailoverTimeMillis(300000).
 		WithMetricsBufferTimeMillis(10000).
-		WithMetricsMaxQueueSize(20)
+		WithMetricsMaxQueueSize(20).
+		WithTableName(tableName)
 
 	runTest(kclConfig, t)
 }
@@ -72,7 +76,8 @@ func TestWorkerStatic(t *testing.T) {
 		WithShardSyncIntervalMillis(5000).
 		WithFailoverTimeMillis(300000).
 		WithMetricsBufferTimeMillis(10000).
-		WithMetricsMaxQueueSize(20)
+		WithMetricsMaxQueueSize(20).
+		WithTableName(tableName)
 
 	runTest(kclConfig, t)
 }
@@ -96,7 +101,8 @@ func TestWorkerAssumeRole(t *testing.T) {
 		WithShardSyncIntervalMillis(5000).
 		WithFailoverTimeMillis(300000).
 		WithMetricsBufferTimeMillis(10000).
-		WithMetricsMaxQueueSize(20)
+		WithMetricsMaxQueueSize(20).
+		WithTableName(tableName)
 
 	runTest(kclConfig, t)
 }
@@ -111,7 +117,14 @@ func runTest(kclConfig *cfg.KinesisClientLibConfiguration, t *testing.T) {
 	// configure cloudwatch as metrics system
 	metricsConfig := getMetricsConfig(kclConfig, metricsSystem)
 
-	worker := NewWorker(recordProcessorFactory(t), kclConfig, metricsConfig)
+	var worker *Worker
+	switch checkpointerType {
+	case "dynamo":
+		worker = NewWorker(recordProcessorFactory(t), kclConfig, metricsConfig)
+	default:
+		panic("unsuported checkpointer: " + checkpointerType)
+	}
+
 	assert.Equal(t, regionName, worker.regionName)
 	assert.Equal(t, streamName, worker.streamName)
 

@@ -34,6 +34,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	"github.com/matryer/try"
@@ -82,13 +83,12 @@ type DynamoCheckpoint struct {
 	Retries       int
 }
 
-func NewDynamoCheckpoint(dynamo dynamodbiface.DynamoDBAPI, kclConfig *config.KinesisClientLibConfiguration) Checkpointer {
+func NewDynamoCheckpoint(kclConfig *config.KinesisClientLibConfiguration) Checkpointer {
 	checkpointer := &DynamoCheckpoint{
 		TableName:               kclConfig.TableName,
 		leaseTableReadCapacity:  int64(kclConfig.InitialLeaseTableReadCapacity),
 		leaseTableWriteCapacity: int64(kclConfig.InitialLeaseTableWriteCapacity),
 		LeaseDuration:           kclConfig.FailoverTimeMillis,
-		svc:                     dynamo,
 		kclConfig:               kclConfig,
 		Retries:                 5,
 	}
@@ -97,6 +97,20 @@ func NewDynamoCheckpoint(dynamo dynamodbiface.DynamoDBAPI, kclConfig *config.Kin
 
 // Init initialises the DynamoDB Checkpoint
 func (checkpointer *DynamoCheckpoint) Init() error {
+
+	s, err := session.NewSession(&aws.Config{
+		Region:      aws.String(checkpointer.kclConfig.RegionName),
+		Endpoint:    &checkpointer.kclConfig.DynamoDBEndpoint,
+		Credentials: checkpointer.kclConfig.DynamoDBCredentials,
+	})
+
+	if err != nil {
+		// no need to move forward
+		log.Fatalf("Failed in getting DynamoDB session for creating Worker: %+v", err)
+	}
+
+	checkpointer.svc = dynamodb.New(s)
+
 	if !checkpointer.doesTableExist() {
 		return checkpointer.createTable()
 	}

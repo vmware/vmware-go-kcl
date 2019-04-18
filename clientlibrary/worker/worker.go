@@ -39,8 +39,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/aws/aws-sdk-go/service/kinesis/kinesisiface"
 
@@ -87,7 +85,6 @@ type Worker struct {
 	processorFactory kcl.IRecordProcessorFactory
 	kclConfig        *config.KinesisClientLibConfiguration
 	kc               kinesisiface.KinesisAPI
-	dynamo           dynamodbiface.DynamoDBAPI
 	checkpointer     Checkpointer
 
 	stop      *chan struct{}
@@ -100,8 +97,30 @@ type Worker struct {
 	mService      metrics.MonitoringService
 }
 
-// NewWorker constructs a Worker instance for processing Kinesis stream data.
 func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisClientLibConfiguration, metricsConfig *metrics.MonitoringConfiguration) *Worker {
+	w := newWorker(
+		factory,
+		kclConfig,
+		metricsConfig,
+	)
+
+	w.checkpointer = NewDynamoCheckpoint(kclConfig)
+	return w
+}
+
+func NewWorkerWithCheckpointer(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisClientLibConfiguration, metricsConfig *metrics.MonitoringConfiguration, chkr Checkpointer) *Worker {
+	w := newWorker(
+		factory,
+		kclConfig,
+		metricsConfig,
+	)
+
+	w.checkpointer = chkr
+	return w
+}
+
+// NewWorker constructs a Worker instance for processing Kinesis stream data.
+func newWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisClientLibConfiguration, metricsConfig *metrics.MonitoringConfiguration) *Worker {
 	w := &Worker{
 		streamName:       kclConfig.StreamName,
 		regionName:       kclConfig.RegionName,
@@ -125,22 +144,6 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 		log.Fatalf("Failed in getting Kinesis session for creating Worker: %+v", err)
 	}
 	w.kc = kinesis.New(s)
-
-	log.Info("Creating DynamoDB session")
-
-	s, err = session.NewSession(&aws.Config{
-		Region:      aws.String(w.regionName),
-		Endpoint:    &kclConfig.DynamoDBEndpoint,
-		Credentials: kclConfig.DynamoDBCredentials,
-	})
-
-	if err != nil {
-		// no need to move forward
-		log.Fatalf("Failed in getting DynamoDB session for creating Worker: %+v", err)
-	}
-
-	w.dynamo = dynamodb.New(s)
-	w.checkpointer = NewDynamoCheckpoint(w.dynamo, kclConfig)
 
 	if w.metricsConfig == nil {
 		// "" means noop monitor service. i.e. not emitting any metrics.
@@ -387,7 +390,7 @@ func (w *Worker) syncShard() error {
 		if _, ok := shardInfo[shard.ID]; !ok {
 			// remove the shard from local status cache
 			delete(w.shardStatus, shard.ID)
-			// remove the shard entry in dynamoDB as well
+			// remove the shard entry from the checkpointer as well
 			// Note: syncShard runs periodically. we don't need to do anything in case of error here.
 			if err := w.checkpointer.RemoveLeaseInfo(shard.ID); err != nil {
 				log.Errorf("Failed to remove shard lease info: %s Error: %+v", shard.ID, err)
