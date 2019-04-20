@@ -21,7 +21,9 @@ package worker
 import (
 	"github.com/aws/aws-sdk-go/aws"
 
+	chk "github.com/vmware/vmware-go-kcl/clientlibrary/checkpoint"
 	kcl "github.com/vmware/vmware-go-kcl/clientlibrary/interfaces"
+	par "github.com/vmware/vmware-go-kcl/clientlibrary/partition"
 )
 
 type (
@@ -41,12 +43,12 @@ type (
 	 * RecordProcessor instance. Amazon Kinesis Client Library will create one instance per shard assignment.
 	 */
 	RecordProcessorCheckpointer struct {
-		shard      *shardStatus
-		checkpoint Checkpointer
+		shard      *par.ShardStatus
+		checkpoint chk.Checkpointer
 	}
 )
 
-func NewRecordProcessorCheckpoint(shard *shardStatus, checkpoint Checkpointer) kcl.IRecordProcessorCheckpointer {
+func NewRecordProcessorCheckpoint(shard *par.ShardStatus, checkpoint chk.Checkpointer) kcl.IRecordProcessorCheckpointer {
 	return &RecordProcessorCheckpointer{
 		shard:      shard,
 		checkpoint: checkpoint,
@@ -62,16 +64,16 @@ func (pc *PreparedCheckpointer) Checkpoint() error {
 }
 
 func (rc *RecordProcessorCheckpointer) Checkpoint(sequenceNumber *string) error {
-	rc.shard.mux.Lock()
+	rc.shard.Mux.Lock()
 
 	// checkpoint the last sequence of a closed shard
 	if sequenceNumber == nil {
-		rc.shard.Checkpoint = SHARD_END
+		rc.shard.Checkpoint = chk.SHARD_END
 	} else {
 		rc.shard.Checkpoint = aws.StringValue(sequenceNumber)
 	}
 
-	rc.shard.mux.Unlock()
+	rc.shard.Mux.Unlock()
 	return rc.checkpoint.CheckpointSequence(rc.shard)
 }
 

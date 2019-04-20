@@ -1,4 +1,4 @@
-FROM golang:1.11
+FROM golang:1.12
 ENV PATH /go/bin:/src/bin:/root/go/bin:/usr/local/go/bin:$PATH
 ENV GOPATH /go:/src
 RUN go get -v github.com/alecthomas/gometalinter && \
