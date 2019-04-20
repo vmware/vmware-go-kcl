@@ -25,7 +25,7 @@
 // The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-package worker
+package checkpoint
 
 import (
 	"errors"
@@ -40,35 +40,13 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/vmware/vmware-go-kcl/clientlibrary/config"
+	par "github.com/vmware/vmware-go-kcl/clientlibrary/partition"
 )
 
 const (
-	LEASE_KEY_KEY                  = "ShardID"
-	LEASE_OWNER_KEY                = "AssignedTo"
-	LEASE_TIMEOUT_KEY              = "LeaseTimeout"
-	CHECKPOINT_SEQUENCE_NUMBER_KEY = "Checkpoint"
-	PARENT_SHARD_ID_KEY            = "ParentShardId"
-
-	// We've completely processed all records in this shard.
-	SHARD_END = "SHARD_END"
-
-	// ErrLeaseNotAquired is returned when we failed to get a lock on the shard
-	ErrLeaseNotAquired = "Lease is already held by another node"
 	// ErrInvalidDynamoDBSchema is returned when there are one or more fields missing from the table
 	ErrInvalidDynamoDBSchema = "The DynamoDB schema is invalid and may need to be re-created"
 )
-
-// Checkpointer handles checkpointing when a record has been processed
-type Checkpointer interface {
-	Init() error
-	GetLease(*shardStatus, string) error
-	CheckpointSequence(*shardStatus) error
-	FetchCheckpoint(*shardStatus) error
-	RemoveLeaseInfo(string) error
-}
-
-// ErrSequenceIDNotFound is returned by FetchCheckpoint when no SequenceID is found
-var ErrSequenceIDNotFound = errors.New("SequenceIDNotFoundForShard")
 
 // DynamoCheckpoint implements the Checkpoint interface using DynamoDB as a backend
 type DynamoCheckpoint struct {
@@ -104,7 +82,7 @@ func (checkpointer *DynamoCheckpoint) Init() error {
 }
 
 // GetLease attempts to gain a lock on the given shard
-func (checkpointer *DynamoCheckpoint) GetLease(shard *shardStatus, newAssignTo string) error {
+func (checkpointer *DynamoCheckpoint) GetLease(shard *par.ShardStatus, newAssignTo string) error {
 	newLeaseTimeout := time.Now().Add(time.Duration(checkpointer.LeaseDuration) * time.Millisecond).UTC()
 	newLeaseTimeoutString := newLeaseTimeout.Format(time.RFC3339)
 	currentCheckpoint, err := checkpointer.getItem(shard.ID)
@@ -177,16 +155,16 @@ func (checkpointer *DynamoCheckpoint) GetLease(shard *shardStatus, newAssignTo s
 		return err
 	}
 
-	shard.mux.Lock()
+	shard.Mux.Lock()
 	shard.AssignedTo = newAssignTo
 	shard.LeaseTimeout = newLeaseTimeout
-	shard.mux.Unlock()
+	shard.Mux.Unlock()
 
 	return nil
 }
 
 // CheckpointSequence writes a checkpoint at the designated sequence ID
-func (checkpointer *DynamoCheckpoint) CheckpointSequence(shard *shardStatus) error {
+func (checkpointer *DynamoCheckpoint) CheckpointSequence(shard *par.ShardStatus) error {
 	leaseTimeout := shard.LeaseTimeout.UTC().Format(time.RFC3339)
 	marshalledCheckpoint := map[string]*dynamodb.AttributeValue{
 		LEASE_KEY_KEY: {
@@ -211,7 +189,7 @@ func (checkpointer *DynamoCheckpoint) CheckpointSequence(shard *shardStatus) err
 }
 
 // FetchCheckpoint retrieves the checkpoint for the given shard
-func (checkpointer *DynamoCheckpoint) FetchCheckpoint(shard *shardStatus) error {
+func (checkpointer *DynamoCheckpoint) FetchCheckpoint(shard *par.ShardStatus) error {
 	checkpoint, err := checkpointer.getItem(shard.ID)
 	if err != nil {
 		return err
@@ -222,8 +200,8 @@ func (checkpointer *DynamoCheckpoint) FetchCheckpoint(shard *shardStatus) error 
 		return ErrSequenceIDNotFound
 	}
 	log.Debugf("Retrieved Shard Iterator %s", *sequenceID.S)
-	shard.mux.Lock()
-	defer shard.mux.Unlock()
+	shard.Mux.Lock()
+	defer shard.Mux.Unlock()
 	shard.Checkpoint = *sequenceID.S
 
 	if assignedTo, ok := checkpoint[LEASE_OWNER_KEY]; ok {

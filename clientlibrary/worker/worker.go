@@ -40,39 +40,15 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/aws/aws-sdk-go/service/kinesis/kinesisiface"
 
+	chk "github.com/vmware/vmware-go-kcl/clientlibrary/checkpoint"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/config"
 	kcl "github.com/vmware/vmware-go-kcl/clientlibrary/interfaces"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
+	par "github.com/vmware/vmware-go-kcl/clientlibrary/partition"
 )
-
-type shardStatus struct {
-	ID            string
-	ParentShardId string
-	Checkpoint    string
-	AssignedTo    string
-	mux           *sync.Mutex
-	LeaseTimeout  time.Time
-	// Shard Range
-	StartingSequenceNumber string
-	// child shard doesn't have end sequence number
-	EndingSequenceNumber string
-}
-
-func (ss *shardStatus) getLeaseOwner() string {
-	ss.mux.Lock()
-	defer ss.mux.Unlock()
-	return ss.AssignedTo
-}
-
-func (ss *shardStatus) setLeaseOwner(owner string) {
-	ss.mux.Lock()
-	defer ss.mux.Unlock()
-	ss.AssignedTo = owner
-}
 
 /**
  * Worker is the high level class that Kinesis applications use to start processing data. It initializes and oversees
@@ -87,14 +63,13 @@ type Worker struct {
 	processorFactory kcl.IRecordProcessorFactory
 	kclConfig        *config.KinesisClientLibConfiguration
 	kc               kinesisiface.KinesisAPI
-	dynamo           dynamodbiface.DynamoDBAPI
-	checkpointer     Checkpointer
+	checkpointer     chk.Checkpointer
 
 	stop      *chan struct{}
 	waitGroup *sync.WaitGroup
 	sigs      *chan os.Signal
 
-	shardStatus map[string]*shardStatus
+	shardStatus map[string]*par.ShardStatus
 
 	metricsConfig *metrics.MonitoringConfiguration
 	mService      metrics.MonitoringService
@@ -139,8 +114,7 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 		log.Fatalf("Failed in getting DynamoDB session for creating Worker: %+v", err)
 	}
 
-	w.dynamo = dynamodb.New(s)
-	w.checkpointer = NewDynamoCheckpoint(w.dynamo, kclConfig)
+	w.checkpointer = chk.NewDynamoCheckpoint(dynamodb.New(s), kclConfig)
 
 	if w.metricsConfig == nil {
 		// "" means noop monitor service. i.e. not emitting any metrics.
@@ -209,7 +183,7 @@ func (w *Worker) initialize() error {
 		return err
 	}
 
-	w.shardStatus = make(map[string]*shardStatus)
+	w.shardStatus = make(map[string]*par.ShardStatus)
 
 	sigs := make(chan os.Signal, 1)
 	w.sigs = &sigs
@@ -227,7 +201,7 @@ func (w *Worker) initialize() error {
 }
 
 // newShardConsumer to create a shard consumer instance
-func (w *Worker) newShardConsumer(shard *shardStatus) *ShardConsumer {
+func (w *Worker) newShardConsumer(shard *par.ShardStatus) *ShardConsumer {
 	return &ShardConsumer{
 		streamName:      w.streamName,
 		shard:           shard,
@@ -258,7 +232,7 @@ func (w *Worker) eventLoop() {
 		// Count the number of leases hold by this worker excluding the processed shard
 		counter := 0
 		for _, shard := range w.shardStatus {
-			if shard.getLeaseOwner() == w.workerID && shard.Checkpoint != SHARD_END {
+			if shard.GetLeaseOwner() == w.workerID && shard.Checkpoint != chk.SHARD_END {
 				counter++
 			}
 		}
@@ -267,14 +241,14 @@ func (w *Worker) eventLoop() {
 		if counter < w.kclConfig.MaxLeasesForWorker {
 			for _, shard := range w.shardStatus {
 				// already owner of the shard
-				if shard.getLeaseOwner() == w.workerID {
+				if shard.GetLeaseOwner() == w.workerID {
 					continue
 				}
 
 				err := w.checkpointer.FetchCheckpoint(shard)
 				if err != nil {
 					// checkpoint may not existed yet is not an error condition.
-					if err != ErrSequenceIDNotFound {
+					if err != chk.ErrSequenceIDNotFound {
 						log.Errorf(" Error: %+v", err)
 						// move on to next shard
 						continue
@@ -282,14 +256,14 @@ func (w *Worker) eventLoop() {
 				}
 
 				// The shard is closed and we have processed all records
-				if shard.Checkpoint == SHARD_END {
+				if shard.Checkpoint == chk.SHARD_END {
 					continue
 				}
 
 				err = w.checkpointer.GetLease(shard, w.workerID)
 				if err != nil {
 					// cannot get lease on the shard
-					if err.Error() != ErrLeaseNotAquired {
+					if err.Error() != chk.ErrLeaseNotAquired {
 						log.Error(err)
 					}
 					continue
@@ -351,10 +325,10 @@ func (w *Worker) getShardIDs(startShardID string, shardInfo map[string]bool) err
 		// found new shard
 		if _, ok := w.shardStatus[*s.ShardId]; !ok {
 			log.Infof("Found new shard with id %s", *s.ShardId)
-			w.shardStatus[*s.ShardId] = &shardStatus{
+			w.shardStatus[*s.ShardId] = &par.ShardStatus{
 				ID:                     *s.ShardId,
 				ParentShardId:          aws.StringValue(s.ParentShardId),
-				mux:                    &sync.Mutex{},
+				Mux:                    &sync.Mutex{},
 				StartingSequenceNumber: aws.StringValue(s.SequenceNumberRange.StartingSequenceNumber),
 				EndingSequenceNumber:   aws.StringValue(s.SequenceNumberRange.EndingSequenceNumber),
 			}

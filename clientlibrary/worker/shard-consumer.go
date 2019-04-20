@@ -38,9 +38,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/aws/aws-sdk-go/service/kinesis/kinesisiface"
 
+	chk "github.com/vmware/vmware-go-kcl/clientlibrary/checkpoint"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/config"
 	kcl "github.com/vmware/vmware-go-kcl/clientlibrary/interfaces"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
+	par "github.com/vmware/vmware-go-kcl/clientlibrary/partition"
 )
 
 const (
@@ -71,9 +73,9 @@ type ShardConsumerState int
 // Note: ShardConsumer only deal with one shard.
 type ShardConsumer struct {
 	streamName      string
-	shard           *shardStatus
+	shard           *par.ShardStatus
 	kc              kinesisiface.KinesisAPI
-	checkpointer    Checkpointer
+	checkpointer    chk.Checkpointer
 	recordProcessor kcl.IRecordProcessor
 	kclConfig       *config.KinesisClientLibConfiguration
 	stop            *chan struct{}
@@ -83,10 +85,10 @@ type ShardConsumer struct {
 	state           ShardConsumerState
 }
 
-func (sc *ShardConsumer) getShardIterator(shard *shardStatus) (*string, error) {
+func (sc *ShardConsumer) getShardIterator(shard *par.ShardStatus) (*string, error) {
 	// Get checkpoint of the shard from dynamoDB
 	err := sc.checkpointer.FetchCheckpoint(shard)
-	if err != nil && err != ErrSequenceIDNotFound {
+	if err != nil && err != chk.ErrSequenceIDNotFound {
 		return nil, err
 	}
 
@@ -123,14 +125,14 @@ func (sc *ShardConsumer) getShardIterator(shard *shardStatus) (*string, error) {
 
 // getRecords continously poll one shard for data record
 // Precondition: it currently has the lease on the shard.
-func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
+func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 	defer sc.waitGroup.Done()
 	defer sc.releaseLease(shard)
 
 	// If the shard is child shard, need to wait until the parent finished.
 	if err := sc.waitOnParentShard(shard); err != nil {
 		// If parent shard has been deleted by Kinesis system already, just ignore the error.
-		if err != ErrSequenceIDNotFound {
+		if err != chk.ErrSequenceIDNotFound {
 			log.Errorf("Error in waiting for parent shard: %v to finish. Error: %+v", shard.ParentShardId, err)
 			return err
 		}
@@ -158,7 +160,7 @@ func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 			log.Debugf("Refreshing lease on shard: %s for worker: %s", shard.ID, sc.consumerID)
 			err = sc.checkpointer.GetLease(shard, sc.consumerID)
 			if err != nil {
-				if err.Error() == ErrLeaseNotAquired {
+				if err.Error() == chk.ErrLeaseNotAquired {
 					log.Warnf("Failed in acquiring lease on shard: %s for worker: %s", shard.ID, sc.consumerID)
 					return nil
 				}
@@ -255,14 +257,14 @@ func (sc *ShardConsumer) getRecords(shard *shardStatus) error {
 }
 
 // Need to wait until the parent shard finished
-func (sc *ShardConsumer) waitOnParentShard(shard *shardStatus) error {
+func (sc *ShardConsumer) waitOnParentShard(shard *par.ShardStatus) error {
 	if len(shard.ParentShardId) == 0 {
 		return nil
 	}
 
-	pshard := &shardStatus{
+	pshard := &par.ShardStatus{
 		ID:  shard.ParentShardId,
-		mux: &sync.Mutex{},
+		Mux: &sync.Mutex{},
 	}
 
 	for {
@@ -271,7 +273,7 @@ func (sc *ShardConsumer) waitOnParentShard(shard *shardStatus) error {
 		}
 
 		// Parent shard is finished.
-		if pshard.Checkpoint == SHARD_END {
+		if pshard.Checkpoint == chk.SHARD_END {
 			return nil
 		}
 
@@ -280,9 +282,9 @@ func (sc *ShardConsumer) waitOnParentShard(shard *shardStatus) error {
 }
 
 // Cleanup the internal lease cache
-func (sc *ShardConsumer) releaseLease(shard *shardStatus) {
+func (sc *ShardConsumer) releaseLease(shard *par.ShardStatus) {
 	log.Infof("Release lease for shard %s", shard.ID)
-	shard.setLeaseOwner("")
+	shard.SetLeaseOwner("")
 	// reporting lease lose metrics
 	sc.mService.LeaseLost(shard.ID)
 }
