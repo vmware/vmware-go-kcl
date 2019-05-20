@@ -29,10 +29,7 @@ package worker
 
 import (
 	"errors"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -67,7 +64,7 @@ type Worker struct {
 
 	stop      *chan struct{}
 	waitGroup *sync.WaitGroup
-	sigs      *chan os.Signal
+	done      bool
 
 	shardStatus map[string]*par.ShardStatus
 
@@ -84,6 +81,7 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 		processorFactory: factory,
 		kclConfig:        kclConfig,
 		metricsConfig:    metricsConfig,
+		done:             false,
 	}
 
 	// create session for Kinesis
@@ -147,7 +145,12 @@ func (w *Worker) Start() error {
 func (w *Worker) Shutdown() {
 	log.Info("Worker shutdown in requested.")
 
+	if w.done {
+		return
+	}
+
 	close(*w.stop)
+	w.done = true
 	w.waitGroup.Wait()
 
 	w.mService.Shutdown()
@@ -184,10 +187,6 @@ func (w *Worker) initialize() error {
 	}
 
 	w.shardStatus = make(map[string]*par.ShardStatus)
-
-	sigs := make(chan os.Signal, 1)
-	w.sigs = &sigs
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	stopChan := make(chan struct{})
 	w.stop = &stopChan
@@ -282,12 +281,8 @@ func (w *Worker) eventLoop() {
 		}
 
 		select {
-		case sig := <-*w.sigs:
-			log.Infof("Received signal %s. Exiting", sig)
-			w.Shutdown()
-			return
 		case <-*w.stop:
-			log.Info("Shutting down")
+			log.Info("Shutting down...")
 			return
 		case <-time.After(time.Duration(w.kclConfig.ShardSyncIntervalMillis) * time.Millisecond):
 		}
