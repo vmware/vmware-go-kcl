@@ -44,6 +44,7 @@ import (
 	kcl "github.com/vmware/vmware-go-kcl/clientlibrary/interfaces"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
 	par "github.com/vmware/vmware-go-kcl/clientlibrary/partition"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 )
 
 /**
@@ -71,8 +72,7 @@ type Worker struct {
 	mService      metrics.MonitoringService
 }
 
-// NewWorker constructs a Worker instance for processing Kinesis stream data.
-func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisClientLibConfiguration, metricsConfig *metrics.MonitoringConfiguration) *Worker {
+func NewDefaultWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisClientLibConfiguration, metricsConfig *metrics.MonitoringConfiguration) *Worker {
 	w := &Worker{
 		streamName:       kclConfig.StreamName,
 		regionName:       kclConfig.RegionName,
@@ -83,29 +83,59 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 		done:             false,
 	}
 
-	// create session for Kinesis
-	log.Info("Creating Kinesis session")
-
-	s, err := session.NewSession(&aws.Config{
-		Region:      aws.String(w.regionName),
-		Endpoint:    &kclConfig.KinesisEndpoint,
-		Credentials: kclConfig.KinesisCredentials,
-	})
-
-	if err != nil {
-		// no need to move forward
-		log.Fatalf("Failed in getting Kinesis session for creating Worker: %+v", err)
-	}
-	w.kc = kinesis.New(s)
-
-	log.Info("Creating DynamoDB based checkpointer")
-	w.checkpointer = chk.NewDynamoCheckpoint(kclConfig)
-
 	if w.metricsConfig == nil {
 		// "" means noop monitor service. i.e. not emitting any metrics.
 		w.metricsConfig = &metrics.MonitoringConfiguration{MonitoringService: ""}
 	}
 	return w
+}
+
+// NewWorker constructs a Worker instance for processing Kinesis stream data.
+func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisClientLibConfiguration, metricsConfig *metrics.MonitoringConfiguration) *Worker {
+	w := NewDefaultWorker(factory, kclConfig, metricsConfig)
+
+	w.initDynamo(nil)
+	w.initKinesis(nil)
+
+	return w
+}
+
+// NewWorkerWithAWSClients constructs a Worker instance for processing Kinesis stream data with
+// pre provided kinesis and dynamo interfaces (primarily used for mocking AWS services in tests)
+func NewWorkerWithAWSClients(factory kcl.IRecordProcessorFactory,
+	kclConfig *config.KinesisClientLibConfiguration, metricsConfig *metrics.MonitoringConfiguration,
+	kinesisIFC kinesisiface.KinesisAPI, dynamoIFC dynamodbiface.DynamoDBAPI) *Worker {
+	w := NewDefaultWorker(factory, kclConfig, metricsConfig)
+
+	w.initKinesis(kinesisIFC)
+	w.initDynamo(dynamoIFC)
+
+	return w
+}
+
+func (w *Worker) initDynamo(dynamoIFC dynamodbiface.DynamoDBAPI) {
+	w.checkpointer = chk.NewDynamoCheckpoint(w.kclConfig).WithDynamoDB(dynamoIFC)
+}
+
+func (w *Worker) initKinesis(kinesisIFC kinesisiface.KinesisAPI) {
+	if kinesisIFC == nil {
+		// create session for Kinesis
+		log.Info("Creating Kinesis session")
+
+		s, err := session.NewSession(&aws.Config{
+			Region:      aws.String(w.regionName),
+			Endpoint:    &w.kclConfig.KinesisEndpoint,
+			Credentials: w.kclConfig.KinesisCredentials,
+		})
+
+		if err != nil {
+			// no need to move forward
+			log.Fatalf("Failed in getting Kinesis session for creating Worker: %+v", err)
+		}
+		w.kc = kinesis.New(s)
+	} else {
+		w.kc = kinesisIFC
+	}
 }
 
 // Run starts consuming data from the stream, and pass it to the application record processors.

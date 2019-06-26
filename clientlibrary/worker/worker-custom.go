@@ -30,7 +30,7 @@ import (
 	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
 )
 
-// NewCustomWorker constructs a Worker instance for processing Kinesis stream data by directly inject custom cjheckpointer.
+// NewCustomWorker constructs a Worker instance for processing Kinesis stream data by directly inject custom checkpointer.
 func NewCustomWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisClientLibConfiguration,
 	checkpointer chk.Checkpointer, metricsConfig *metrics.MonitoringConfiguration) *Worker {
 	w := &Worker{
