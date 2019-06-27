@@ -263,8 +263,9 @@ func (sc *ShardConsumer) waitOnParentShard(shard *par.ShardStatus) error {
 	}
 
 	pshard := &par.ShardStatus{
-		ID:  shard.ParentShardId,
-		Mux: &sync.Mutex{},
+		ID:         shard.ParentShardId,
+		StreamName: shard.StreamName,
+		Mux:        &sync.Mutex{},
 	}
 
 	for {

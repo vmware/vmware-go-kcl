@@ -35,6 +35,7 @@ import (
 type ShardStatus struct {
 	ID            string
 	ParentShardId string
+	StreamName    string
 	Checkpoint    string
 	AssignedTo    string
 	Mux           *sync.Mutex
@@ -55,4 +56,8 @@ func (ss *ShardStatus) SetLeaseOwner(owner string) {
 	ss.Mux.Lock()
 	defer ss.Mux.Unlock()
 	ss.AssignedTo = owner
+}
+
+func (ss *ShardStatus) GetLeaseID() string {
+	return ss.StreamName + "/" + ss.ID
 }
