@@ -29,14 +29,14 @@ package checkpoint
 
 import (
 	"errors"
-	"math"
+	"github.com/aws/aws-sdk-go/aws/client"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
-	"github.com/matryer/try"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/vmware/vmware-go-kcl/clientlibrary/config"
@@ -46,6 +46,9 @@ import (
 const (
 	// ErrInvalidDynamoDBSchema is returned when there are one or more fields missing from the table
 	ErrInvalidDynamoDBSchema = "The DynamoDB schema is invalid and may need to be re-created"
+
+	// NumMaxRetries is the max times of doing retry
+	NumMaxRetries = 5
 )
 
 // DynamoCheckpoint implements the Checkpoint interface using DynamoDB as a backend
@@ -54,28 +57,53 @@ type DynamoCheckpoint struct {
 	leaseTableReadCapacity  int64
 	leaseTableWriteCapacity int64
 
-	LeaseDuration int
-	svc           dynamodbiface.DynamoDBAPI
-	kclConfig     *config.KinesisClientLibConfiguration
-	Retries       int
+	LeaseDuration  int
+	svc            dynamodbiface.DynamoDBAPI
+	kclConfig      *config.KinesisClientLibConfiguration
+	Retries        int
+	skipTableCheck bool
 }
 
-func NewDynamoCheckpoint(dynamo dynamodbiface.DynamoDBAPI, kclConfig *config.KinesisClientLibConfiguration) Checkpointer {
+func NewDynamoCheckpoint(kclConfig *config.KinesisClientLibConfiguration) *DynamoCheckpoint {
 	checkpointer := &DynamoCheckpoint{
 		TableName:               kclConfig.TableName,
 		leaseTableReadCapacity:  int64(kclConfig.InitialLeaseTableReadCapacity),
 		leaseTableWriteCapacity: int64(kclConfig.InitialLeaseTableWriteCapacity),
 		LeaseDuration:           kclConfig.FailoverTimeMillis,
-		svc:                     dynamo,
 		kclConfig:               kclConfig,
-		Retries:                 5,
+		Retries:                 NumMaxRetries,
 	}
+
+	return checkpointer
+}
+
+// WithDynamoDB is used to provide DynamoDB service
+func (checkpointer *DynamoCheckpoint) WithDynamoDB(svc dynamodbiface.DynamoDBAPI) *DynamoCheckpoint {
+	checkpointer.svc = svc
 	return checkpointer
 }
 
 // Init initialises the DynamoDB Checkpoint
 func (checkpointer *DynamoCheckpoint) Init() error {
-	if !checkpointer.doesTableExist() {
+	log.Info("Creating DynamoDB session")
+
+	s, err := session.NewSession(&aws.Config{
+		Region:      aws.String(checkpointer.kclConfig.RegionName),
+		Endpoint:    &checkpointer.kclConfig.DynamoDBEndpoint,
+		Credentials: checkpointer.kclConfig.DynamoDBCredentials,
+		Retryer:     client.DefaultRetryer{NumMaxRetries: checkpointer.Retries},
+	})
+
+	if err != nil {
+		// no need to move forward
+		log.Fatalf("Failed in getting DynamoDB session for creating Worker: %+v", err)
+	}
+
+	if checkpointer.svc == nil {
+		checkpointer.svc = dynamodb.New(s)
+	}
+
+	if !checkpointer.skipTableCheck && !checkpointer.doesTableExist() {
 		return checkpointer.createTable()
 	}
 	return nil
@@ -272,68 +300,30 @@ func (checkpointer *DynamoCheckpoint) conditionalUpdate(conditionExpression stri
 }
 
 func (checkpointer *DynamoCheckpoint) putItem(input *dynamodb.PutItemInput) error {
-	return try.Do(func(attempt int) (bool, error) {
-		_, err := checkpointer.svc.PutItem(input)
-		if awsErr, ok := err.(awserr.Error); ok {
-			if awsErr.Code() == dynamodb.ErrCodeProvisionedThroughputExceededException ||
-				awsErr.Code() == dynamodb.ErrCodeInternalServerError &&
-					attempt < checkpointer.Retries {
-				// Backoff time as recommended by https://docs.aws.amazon.com/general/latest/gr/api-retries.html
-				time.Sleep(time.Duration(math.Exp2(float64(attempt))*100) * time.Millisecond)
-				return true, err
-			}
-		}
-		return false, err
-	})
+	_, err := checkpointer.svc.PutItem(input)
+	return err
 }
 
 func (checkpointer *DynamoCheckpoint) getItem(shardID string) (map[string]*dynamodb.AttributeValue, error) {
-	var item *dynamodb.GetItemOutput
-	err := try.Do(func(attempt int) (bool, error) {
-		var err error
-		item, err = checkpointer.svc.GetItem(&dynamodb.GetItemInput{
-			TableName: aws.String(checkpointer.TableName),
-			Key: map[string]*dynamodb.AttributeValue{
-				LEASE_KEY_KEY: {
-					S: aws.String(shardID),
-				},
+	item, err := checkpointer.svc.GetItem(&dynamodb.GetItemInput{
+		TableName: aws.String(checkpointer.TableName),
+		Key: map[string]*dynamodb.AttributeValue{
+			LEASE_KEY_KEY: {
+				S: aws.String(shardID),
 			},
-		})
-		if awsErr, ok := err.(awserr.Error); ok {
-			if awsErr.Code() == dynamodb.ErrCodeProvisionedThroughputExceededException ||
-				awsErr.Code() == dynamodb.ErrCodeInternalServerError &&
-					attempt < checkpointer.Retries {
-				// Backoff time as recommended by https://docs.aws.amazon.com/general/latest/gr/api-retries.html
-				time.Sleep(time.Duration(math.Exp2(float64(attempt))*100) * time.Millisecond)
-				return true, err
-			}
-		}
-		return false, err
+		},
 	})
 	return item.Item, err
 }
 
 func (checkpointer *DynamoCheckpoint) removeItem(shardID string) error {
-	err := try.Do(func(attempt int) (bool, error) {
-		var err error
-		_, err = checkpointer.svc.DeleteItem(&dynamodb.DeleteItemInput{
-			TableName: aws.String(checkpointer.TableName),
-			Key: map[string]*dynamodb.AttributeValue{
-				LEASE_KEY_KEY: {
-					S: aws.String(shardID),
-				},
+	_, err := checkpointer.svc.DeleteItem(&dynamodb.DeleteItemInput{
+		TableName: aws.String(checkpointer.TableName),
+		Key: map[string]*dynamodb.AttributeValue{
+			LEASE_KEY_KEY: {
+				S: aws.String(shardID),
 			},
-		})
-		if awsErr, ok := err.(awserr.Error); ok {
-			if awsErr.Code() == dynamodb.ErrCodeProvisionedThroughputExceededException ||
-				awsErr.Code() == dynamodb.ErrCodeInternalServerError &&
-					attempt < checkpointer.Retries {
-				// Backoff time as recommended by https://docs.aws.amazon.com/general/latest/gr/api-retries.html
-				time.Sleep(time.Duration(math.Exp2(float64(attempt))*100) * time.Millisecond)
-				return true, err
-			}
-		}
-		return false, err
+		},
 	})
 	return err
 }

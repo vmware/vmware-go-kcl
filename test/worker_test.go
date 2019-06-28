@@ -16,7 +16,7 @@
  * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-package worker
+package test
 
 import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -38,6 +38,7 @@ import (
 	kc "github.com/vmware/vmware-go-kcl/clientlibrary/interfaces"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
+	wk "github.com/vmware/vmware-go-kcl/clientlibrary/worker"
 )
 
 const (
@@ -126,9 +127,7 @@ func runTest(kclConfig *cfg.KinesisClientLibConfiguration, triggersig bool, t *t
 	// configure cloudwatch as metrics system
 	metricsConfig := getMetricsConfig(kclConfig, metricsSystem)
 
-	worker := NewWorker(recordProcessorFactory(t), kclConfig, metricsConfig)
-	assert.Equal(t, regionName, worker.regionName)
-	assert.Equal(t, streamName, worker.streamName)
+	worker := wk.NewWorker(recordProcessorFactory(t), kclConfig, metricsConfig)
 
 	err := worker.Start()
 	assert.Nil(t, err)
