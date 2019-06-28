@@ -7,20 +7,13 @@ export PROJ_ROOT="$HMAKE_PROJECT_DIR"
 export GOPATH=/go:$PROJ_ROOT
 
 local_go_pkgs() {
-    find . -name '*.go' | \
+    find './clientlibrary/' -name '*.go' | \
         grep -Fv '/vendor/' | \
         grep -Fv '/go/' | \
         grep -Fv '/gen/' | \
         grep -Fv '/tmp/' | \
         grep -Fv '/run/' | \
         grep -Fv '/tests/' | \
-        sed -r 's|(.+)/[^/]+\.go$|\1|g' | \
-        sort -u
-}
-
-local_test_pkgs() {
-    find ./src/test -name '*.go' | \
-        grep -Fv '_test.go' | \
         sed -r 's|(.+)/[^/]+\.go$|\1|g' | \
         sort -u
 }

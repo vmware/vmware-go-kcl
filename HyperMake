@@ -24,6 +24,7 @@ targets:
       - export GO111MODULE=on
       - go mod download
       - go mod vendor
+      - go mod tidy
 
   build:
     description: build source code
@@ -43,7 +44,6 @@ targets:
     description: run CI tests
     after:
       - deps
-      - check
     cmds:
       - ./support/scripts/ci.sh
 
@@ -86,7 +86,7 @@ targets:
 
 settings:
   default-targets:
-    - ci
+    - test
   docker:
     image: 'vmware/go-kcl-toolchain:0.1.2'
     src-volume: /go/src/github.com/vmware/vmware-go-kcl

@@ -36,7 +36,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/aws/aws-sdk-go/service/kinesis/kinesisiface"
 
@@ -99,20 +98,8 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 	}
 	w.kc = kinesis.New(s)
 
-	log.Info("Creating DynamoDB session")
-
-	s, err = session.NewSession(&aws.Config{
-		Region:      aws.String(w.regionName),
-		Endpoint:    &kclConfig.DynamoDBEndpoint,
-		Credentials: kclConfig.DynamoDBCredentials,
-	})
-
-	if err != nil {
-		// no need to move forward
-		log.Fatalf("Failed in getting DynamoDB session for creating Worker: %+v", err)
-	}
-
-	w.checkpointer = chk.NewDynamoCheckpoint(dynamodb.New(s), kclConfig)
+	log.Info("Creating DynamoDB based checkpointer")
+	w.checkpointer = chk.NewDynamoCheckpoint(kclConfig)
 
 	if w.metricsConfig == nil {
 		// "" means noop monitor service. i.e. not emitting any metrics.

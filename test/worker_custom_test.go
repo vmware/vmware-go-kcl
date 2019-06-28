@@ -16,12 +16,9 @@
  * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-package worker
+package test
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"os"
 	"testing"
 	"time"
@@ -32,6 +29,7 @@ import (
 	chk "github.com/vmware/vmware-go-kcl/clientlibrary/checkpoint"
 	cfg "github.com/vmware/vmware-go-kcl/clientlibrary/config"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
+	wk "github.com/vmware/vmware-go-kcl/clientlibrary/worker"
 )
 
 func TestCustomWorker(t *testing.T) {
@@ -53,25 +51,11 @@ func TestCustomWorker(t *testing.T) {
 	// configure cloudwatch as metrics system
 	metricsConfig := getMetricsConfig(kclConfig, metricsSystem)
 
-	// create dynamodb checkpointer.
-	s, err := session.NewSession(&aws.Config{
-		Region:      aws.String(regionName),
-		Endpoint:    &kclConfig.DynamoDBEndpoint,
-		Credentials: kclConfig.DynamoDBCredentials,
-	})
+	checkpointer := chk.NewDynamoCheckpoint(kclConfig)
 
-	if err != nil {
-		// no need to move forward
-		log.Fatalf("Failed in getting DynamoDB session for creating Worker: %+v", err)
-	}
+	worker := wk.NewCustomWorker(recordProcessorFactory(t), kclConfig, checkpointer, metricsConfig)
 
-	checkpointer := chk.NewDynamoCheckpoint(dynamodb.New(s), kclConfig)
-
-	worker := NewCustomWorker(recordProcessorFactory(t), kclConfig, checkpointer, metricsConfig)
-	assert.Equal(t, regionName, worker.regionName)
-	assert.Equal(t, streamName, worker.streamName)
-
-	err = worker.Start()
+	err := worker.Start()
 	assert.Nil(t, err)
 
 	// Put some data into stream.
