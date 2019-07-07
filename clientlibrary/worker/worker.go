@@ -83,24 +83,6 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 		done:             false,
 	}
 
-	// create session for Kinesis
-	log.Info("Creating Kinesis session")
-
-	s, err := session.NewSession(&aws.Config{
-		Region:      aws.String(w.regionName),
-		Endpoint:    &kclConfig.KinesisEndpoint,
-		Credentials: kclConfig.KinesisCredentials,
-	})
-
-	if err != nil {
-		// no need to move forward
-		log.Fatalf("Failed in getting Kinesis session for creating Worker: %+v", err)
-	}
-	w.kc = kinesis.New(s)
-
-	log.Info("Creating DynamoDB based checkpointer")
-	w.checkpointer = chk.NewDynamoCheckpoint(kclConfig)
-
 	if w.metricsConfig == nil {
 		// "" means noop monitor service. i.e. not emitting any metrics.
 		w.metricsConfig = &metrics.MonitoringConfiguration{MonitoringService: ""}
@@ -108,10 +90,23 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 	return w
 }
 
+// WithKinesis is used to provide Kinesis service for either custom implementation or unit testing.
+func (w *Worker) WithKinesis(svc kinesisiface.KinesisAPI) *Worker {
+	w.kc = svc
+	return w
+}
+
+// WithCheckpointer is used to provide a custom checkpointer service for non-dynamodb implementation
+// or unit testing.
+func (w *Worker) WithCheckpointer(checker chk.Checkpointer) *Worker {
+	w.checkpointer = checker
+	return w
+}
+
 // Run starts consuming data from the stream, and pass it to the application record processors.
 func (w *Worker) Start() error {
 	if err := w.initialize(); err != nil {
-		log.Errorf("Failed to start Worker: %+v", err)
+		log.Errorf("Failed to initialize Worker: %+v", err)
 		return err
 	}
 
@@ -160,6 +155,34 @@ func (w *Worker) Publish(streamName, partitionKey string, data []byte) error {
 // initialize
 func (w *Worker) initialize() error {
 	log.Info("Worker initialization in progress...")
+
+	// Create default Kinesis session
+	if w.kc == nil {
+		// create session for Kinesis
+		log.Info("Creating Kinesis session")
+
+		s, err := session.NewSession(&aws.Config{
+			Region:      aws.String(w.regionName),
+			Endpoint:    &w.kclConfig.KinesisEndpoint,
+			Credentials: w.kclConfig.KinesisCredentials,
+		})
+
+		if err != nil {
+			// no need to move forward
+			log.Fatalf("Failed in getting Kinesis session for creating Worker: %+v", err)
+		}
+		w.kc = kinesis.New(s)
+	} else {
+		log.Info("Use custom Kinesis service.")
+	}
+
+	// Create default dynamodb based checkpointer implementation
+	if w.checkpointer == nil {
+		log.Info("Creating DynamoDB based checkpointer")
+		w.checkpointer = chk.NewDynamoCheckpoint(w.kclConfig)
+	} else {
+		log.Info("Use custom checkpointer implementation.")
+	}
 
 	err := w.metricsConfig.Init(w.kclConfig.ApplicationName, w.streamName, w.workerID)
 	if err != nil {
