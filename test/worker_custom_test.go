@@ -126,7 +126,7 @@ func TestWorkerInjectKinesis(t *testing.T) {
 	worker.Shutdown()
 }
 
-func TestWorkerInjectKinesisAncCheckpointer(t *testing.T) {
+func TestWorkerInjectKinesisAndCheckpointer(t *testing.T) {
 	kclConfig := cfg.NewKinesisClientLibConfig("appName", streamName, regionName, workerID).
 		WithInitialPositionInStream(cfg.LATEST).
 		WithMaxRecords(10).
