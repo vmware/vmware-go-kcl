@@ -20,6 +20,7 @@ package test
 
 import (
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	chk "github.com/vmware/vmware-go-kcl/clientlibrary/checkpoint"
 	cfg "github.com/vmware/vmware-go-kcl/clientlibrary/config"
+	par "github.com/vmware/vmware-go-kcl/clientlibrary/partition"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
 	wk "github.com/vmware/vmware-go-kcl/clientlibrary/worker"
 )
@@ -77,6 +79,20 @@ func TestWorkerInjectCheckpointer(t *testing.T) {
 	// wait a few seconds before shutdown processing
 	time.Sleep(10 * time.Second)
 	worker.Shutdown()
+
+	// verify the checkpointer after graceful shutdown
+	status := &par.ShardStatus{
+		ID:  shardID,
+		Mux: &sync.Mutex{},
+	}
+	checkpointer.FetchCheckpoint(status)
+
+	// checkpointer should be the same
+	assert.NotEmpty(t, status.Checkpoint)
+
+	// Only the lease owner has been wiped out
+	assert.Equal(t, "", status.GetLeaseOwner())
+
 }
 
 func TestWorkerInjectKinesis(t *testing.T) {
