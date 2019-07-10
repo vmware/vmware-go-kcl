@@ -50,6 +50,8 @@ const (
 const specstr = `{"name":"kube-qQyhk","networking":{"containerNetworkCidr":"10.2.0.0/16"},"orgName":"BVT-Org-cLQch","projectName":"project-tDSJd","serviceLevel":"DEVELOPER","size":{"count":1},"version":"1.8.1-4"}`
 const metricsSystem = "cloudwatch"
 
+var shardID string
+
 func TestWorker(t *testing.T) {
 	kclConfig := cfg.NewKinesisClientLibConfig("appName", streamName, regionName, workerID).
 		WithInitialPositionInStream(cfg.LATEST).
@@ -235,6 +237,7 @@ type dumpRecordProcessor struct {
 
 func (dd *dumpRecordProcessor) Initialize(input *kc.InitializationInput) {
 	dd.t.Logf("Processing SharId: %v at checkpoint: %v", input.ShardId, aws.StringValue(input.ExtendedSequenceNumber.SequenceNumber))
+	shardID = input.ShardId
 }
 
 func (dd *dumpRecordProcessor) ProcessRecords(input *kc.ProcessRecordsInput) {

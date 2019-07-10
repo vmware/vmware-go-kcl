@@ -29,6 +29,7 @@ package checkpoint
 
 import (
 	"errors"
+	"github.com/stretchr/testify/assert"
 	"sync"
 	"testing"
 	"time"
@@ -43,7 +44,7 @@ import (
 )
 
 func TestDoesTableExist(t *testing.T) {
-	svc := &mockDynamoDB{tableExist: true}
+	svc := &mockDynamoDB{tableExist: true, item: map[string]*dynamodb.AttributeValue{}}
 	checkpoint := &DynamoCheckpoint{
 		TableName: "TableName",
 		svc:       svc,
@@ -60,7 +61,7 @@ func TestDoesTableExist(t *testing.T) {
 }
 
 func TestGetLeaseNotAquired(t *testing.T) {
-	svc := &mockDynamoDB{tableExist: true}
+	svc := &mockDynamoDB{tableExist: true, item: map[string]*dynamodb.AttributeValue{}}
 	kclConfig := cfg.NewKinesisClientLibConfig("appName", "test", "us-west-2", "abc").
 		WithInitialPositionInStream(cfg.LATEST).
 		WithMaxRecords(10).
@@ -91,7 +92,7 @@ func TestGetLeaseNotAquired(t *testing.T) {
 }
 
 func TestGetLeaseAquired(t *testing.T) {
-	svc := &mockDynamoDB{tableExist: true}
+	svc := &mockDynamoDB{tableExist: true, item: map[string]*dynamodb.AttributeValue{}}
 	kclConfig := cfg.NewKinesisClientLibConfig("appName", "test", "us-west-2", "abc").
 		WithInitialPositionInStream(cfg.LATEST).
 		WithMaxRecords(10).
@@ -102,7 +103,6 @@ func TestGetLeaseAquired(t *testing.T) {
 		WithMetricsMaxQueueSize(20)
 	checkpoint := NewDynamoCheckpoint(kclConfig).WithDynamoDB(svc)
 	checkpoint.Init()
-	checkpoint.svc = svc
 	marshalledCheckpoint := map[string]*dynamodb.AttributeValue{
 		"ShardID": {
 			S: aws.String("0001"),
@@ -139,6 +139,23 @@ func TestGetLeaseAquired(t *testing.T) {
 	} else if *id.S != "deadbeef" {
 		t.Errorf("Expected checkpoint to be deadbeef. Got '%s'", *id.S)
 	}
+
+	// release owner info
+	err = checkpoint.RemoveLeaseOwner(shard.ID)
+	assert.Nil(t, err)
+
+	status := &par.ShardStatus{
+		ID:  shard.ID,
+		Mux: &sync.Mutex{},
+	}
+	checkpoint.FetchCheckpoint(status)
+
+	// checkpointer and parent shard id should be the same
+	assert.Equal(t, shard.Checkpoint, status.Checkpoint)
+	assert.Equal(t, shard.ParentShardId, status.ParentShardId)
+
+	// Only the lease owner has been wiped out
+	assert.Equal(t, "", status.GetLeaseOwner())
 }
 
 type mockDynamoDB struct {
@@ -155,7 +172,28 @@ func (m *mockDynamoDB) DescribeTable(*dynamodb.DescribeTableInput) (*dynamodb.De
 }
 
 func (m *mockDynamoDB) PutItem(input *dynamodb.PutItemInput) (*dynamodb.PutItemOutput, error) {
-	m.item = input.Item
+	item := input.Item
+
+	if shardID, ok := item[LEASE_KEY_KEY]; ok {
+		m.item[LEASE_KEY_KEY] = shardID
+	}
+
+	if owner, ok := item[LEASE_OWNER_KEY]; ok {
+		m.item[LEASE_OWNER_KEY] = owner
+	}
+
+	if timeout, ok := item[LEASE_TIMEOUT_KEY]; ok {
+		m.item[LEASE_TIMEOUT_KEY] = timeout
+	}
+
+	if checkpoint, ok := item[CHECKPOINT_SEQUENCE_NUMBER_KEY]; ok {
+		m.item[CHECKPOINT_SEQUENCE_NUMBER_KEY] = checkpoint
+	}
+
+	if parent, ok := item[PARENT_SHARD_ID_KEY]; ok {
+		m.item[PARENT_SHARD_ID_KEY] = parent
+	}
+
 	return nil, nil
 }
 
@@ -163,6 +201,16 @@ func (m *mockDynamoDB) GetItem(input *dynamodb.GetItemInput) (*dynamodb.GetItemO
 	return &dynamodb.GetItemOutput{
 		Item: m.item,
 	}, nil
+}
+
+func (m *mockDynamoDB) UpdateItem(input *dynamodb.UpdateItemInput) (*dynamodb.UpdateItemOutput, error) {
+	exp := input.UpdateExpression
+
+	if aws.StringValue(exp) == "remove "+LEASE_OWNER_KEY {
+		delete(m.item, LEASE_OWNER_KEY)
+	}
+
+	return nil, nil
 }
 
 func (m *mockDynamoDB) CreateTable(input *dynamodb.CreateTableInput) (*dynamodb.CreateTableOutput, error) {

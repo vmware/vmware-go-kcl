@@ -89,7 +89,7 @@ func (checkpointer *DynamoCheckpoint) Init() error {
 
 	s, err := session.NewSession(&aws.Config{
 		Region:      aws.String(checkpointer.kclConfig.RegionName),
-		Endpoint:    &checkpointer.kclConfig.DynamoDBEndpoint,
+		Endpoint:    aws.String(checkpointer.kclConfig.DynamoDBEndpoint),
 		Credentials: checkpointer.kclConfig.DynamoDBCredentials,
 		Retryer:     client.DefaultRetryer{NumMaxRetries: checkpointer.Retries},
 	})
@@ -133,43 +133,45 @@ func (checkpointer *DynamoCheckpoint) GetLease(shard *par.ShardStatus, newAssign
 		if err != nil {
 			return err
 		}
+
 		if !time.Now().UTC().After(currentLeaseTimeout) && assignedTo != newAssignTo {
 			return errors.New(ErrLeaseNotAquired)
 		}
+
 		log.Debugf("Attempting to get a lock for shard: %s, leaseTimeout: %s, assignedTo: %s", shard.ID, currentLeaseTimeout, assignedTo)
 		conditionalExpression = "ShardID = :id AND AssignedTo = :assigned_to AND LeaseTimeout = :lease_timeout"
 		expressionAttributeValues = map[string]*dynamodb.AttributeValue{
 			":id": {
-				S: &shard.ID,
+				S: aws.String(shard.ID),
 			},
 			":assigned_to": {
-				S: &assignedTo,
+				S: aws.String(assignedTo),
 			},
 			":lease_timeout": {
-				S: &leaseTimeout,
+				S: aws.String(leaseTimeout),
 			},
 		}
 	}
 
 	marshalledCheckpoint := map[string]*dynamodb.AttributeValue{
 		LEASE_KEY_KEY: {
-			S: &shard.ID,
+			S: aws.String(shard.ID),
 		},
 		LEASE_OWNER_KEY: {
-			S: &newAssignTo,
+			S: aws.String(newAssignTo),
 		},
 		LEASE_TIMEOUT_KEY: {
-			S: &newLeaseTimeoutString,
+			S: aws.String(newLeaseTimeoutString),
 		},
 	}
 
 	if len(shard.ParentShardId) > 0 {
-		marshalledCheckpoint[PARENT_SHARD_ID_KEY] = &dynamodb.AttributeValue{S: &shard.ParentShardId}
+		marshalledCheckpoint[PARENT_SHARD_ID_KEY] = &dynamodb.AttributeValue{S: aws.String(shard.ParentShardId)}
 	}
 
 	if shard.Checkpoint != "" {
 		marshalledCheckpoint[CHECKPOINT_SEQUENCE_NUMBER_KEY] = &dynamodb.AttributeValue{
-			S: &shard.Checkpoint,
+			S: aws.String(shard.Checkpoint),
 		}
 	}
 
@@ -196,16 +198,16 @@ func (checkpointer *DynamoCheckpoint) CheckpointSequence(shard *par.ShardStatus)
 	leaseTimeout := shard.LeaseTimeout.UTC().Format(time.RFC3339)
 	marshalledCheckpoint := map[string]*dynamodb.AttributeValue{
 		LEASE_KEY_KEY: {
-			S: &shard.ID,
+			S: aws.String(shard.ID),
 		},
 		CHECKPOINT_SEQUENCE_NUMBER_KEY: {
-			S: &shard.Checkpoint,
+			S: aws.String(shard.Checkpoint),
 		},
 		LEASE_OWNER_KEY: {
-			S: &shard.AssignedTo,
+			S: aws.String(shard.AssignedTo),
 		},
 		LEASE_TIMEOUT_KEY: {
-			S: &leaseTimeout,
+			S: aws.String(leaseTimeout),
 		},
 	}
 
@@ -230,10 +232,10 @@ func (checkpointer *DynamoCheckpoint) FetchCheckpoint(shard *par.ShardStatus) er
 	log.Debugf("Retrieved Shard Iterator %s", *sequenceID.S)
 	shard.Mux.Lock()
 	defer shard.Mux.Unlock()
-	shard.Checkpoint = *sequenceID.S
+	shard.Checkpoint = aws.StringValue(sequenceID.S)
 
 	if assignedTo, ok := checkpoint[LEASE_OWNER_KEY]; ok {
-		shard.AssignedTo = *assignedTo.S
+		shard.AssignedTo = aws.StringValue(assignedTo.S)
 	}
 	return nil
 }
@@ -247,6 +249,23 @@ func (checkpointer *DynamoCheckpoint) RemoveLeaseInfo(shardID string) error {
 	} else {
 		log.Infof("Lease info for shard: %s has been removed.", shardID)
 	}
+
+	return err
+}
+
+// RemoveLeaseOwner to remove lease owner for the shard entry
+func (checkpointer *DynamoCheckpoint) RemoveLeaseOwner(shardID string) error {
+	input := &dynamodb.UpdateItemInput{
+		TableName: aws.String(checkpointer.TableName),
+		Key: map[string]*dynamodb.AttributeValue{
+			LEASE_KEY_KEY: {
+				S: aws.String(shardID),
+			},
+		},
+		UpdateExpression: aws.String("remove " + LEASE_OWNER_KEY),
+	}
+
+	_, err := checkpointer.svc.UpdateItem(input)
 
 	return err
 }

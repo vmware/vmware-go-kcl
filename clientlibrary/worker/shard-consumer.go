@@ -285,6 +285,13 @@ func (sc *ShardConsumer) waitOnParentShard(shard *par.ShardStatus) error {
 func (sc *ShardConsumer) releaseLease(shard *par.ShardStatus) {
 	log.Infof("Release lease for shard %s", shard.ID)
 	shard.SetLeaseOwner("")
+
+	// Release the lease by wiping out the lease owner for the shard
+	// Note: we don't need to do anything in case of error here and shard lease will eventuall be expired.
+	if err := sc.checkpointer.RemoveLeaseOwner(shard.ID); err != nil {
+		log.Errorf("Failed to release shard lease or shard: %s Error: %+v", shard.ID, err)
+	}
+
 	// reporting lease lose metrics
 	sc.mService.LeaseLost(shard.ID)
 }

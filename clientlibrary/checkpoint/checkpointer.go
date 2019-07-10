@@ -48,11 +48,23 @@ const (
 
 // Checkpointer handles checkpointing when a record has been processed
 type Checkpointer interface {
+	// Init initialises the Checkpoint
 	Init() error
+
+	// GetLease attempts to gain a lock on the given shard
 	GetLease(*par.ShardStatus, string) error
+
+	// CheckpointSequence writes a checkpoint at the designated sequence ID
 	CheckpointSequence(*par.ShardStatus) error
+
+	// FetchCheckpoint retrieves the checkpoint for the given shard
 	FetchCheckpoint(*par.ShardStatus) error
+
+	// RemoveLeaseInfo to remove lease info for shard entry because the shard no longer exists
 	RemoveLeaseInfo(string) error
+
+	// RemoveLeaseOwner to remove lease owner for the shard entry to make the shard available for reassignment
+	RemoveLeaseOwner(string) error
 }
 
 // ErrSequenceIDNotFound is returned by FetchCheckpoint when no SequenceID is found
