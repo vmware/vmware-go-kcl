@@ -67,26 +67,26 @@ type Worker struct {
 
 	shardStatus map[string]*par.ShardStatus
 
-	metricsConfig *metrics.MonitoringConfiguration
-	mService      metrics.MonitoringService
+	mService metrics.MonitoringService
 }
 
 // NewWorker constructs a Worker instance for processing Kinesis stream data.
-func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisClientLibConfiguration, metricsConfig *metrics.MonitoringConfiguration) *Worker {
+func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisClientLibConfiguration, metricsService metrics.MonitoringService) *Worker {
 	w := &Worker{
 		streamName:       kclConfig.StreamName,
 		regionName:       kclConfig.RegionName,
 		workerID:         kclConfig.WorkerID,
 		processorFactory: factory,
 		kclConfig:        kclConfig,
-		metricsConfig:    metricsConfig,
 		done:             false,
+		mService:         metricsService,
 	}
 
-	if w.metricsConfig == nil {
+	if w.mService == nil {
 		// "" means noop monitor service. i.e. not emitting any metrics.
-		w.metricsConfig = &metrics.MonitoringConfiguration{MonitoringService: ""}
+		w.mService = &metrics.NoopMonitoringService{}
 	}
+
 	return w
 }
 
@@ -176,6 +176,11 @@ func (w *Worker) initialize() error {
 		log.Info("Use custom Kinesis service.")
 	}
 
+	err := w.mService.Init()
+	if err != nil {
+		log.Errorf("Failed to start monitoring service: %+v", err)
+	}
+
 	// Create default dynamodb based checkpointer implementation
 	if w.checkpointer == nil {
 		log.Info("Creating DynamoDB based checkpointer")
@@ -183,12 +188,6 @@ func (w *Worker) initialize() error {
 	} else {
 		log.Info("Use custom checkpointer implementation.")
 	}
-
-	err := w.metricsConfig.Init(w.kclConfig.ApplicationName, w.streamName, w.workerID)
-	if err != nil {
-		log.Errorf("Failed to start monitoring service: %+v", err)
-	}
-	w.mService = w.metricsConfig.GetMonitoringService()
 
 	log.Info("Initializing Checkpointer")
 	if err := w.checkpointer.Init(); err != nil {
