@@ -61,7 +61,6 @@ type DynamoCheckpoint struct {
 	svc            dynamodbiface.DynamoDBAPI
 	kclConfig      *config.KinesisClientLibConfiguration
 	Retries        int
-	skipTableCheck bool
 }
 
 func NewDynamoCheckpoint(kclConfig *config.KinesisClientLibConfiguration) *DynamoCheckpoint {
@@ -103,7 +102,7 @@ func (checkpointer *DynamoCheckpoint) Init() error {
 		checkpointer.svc = dynamodb.New(s)
 	}
 
-	if !checkpointer.skipTableCheck && !checkpointer.doesTableExist() {
+	if !checkpointer.doesTableExist() {
 		return checkpointer.createTable()
 	}
 	return nil
