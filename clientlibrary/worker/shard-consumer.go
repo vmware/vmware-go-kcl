@@ -28,10 +28,11 @@
 package worker
 
 import (
-	log "github.com/sirupsen/logrus"
 	"math"
 	"sync"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -79,7 +80,6 @@ type ShardConsumer struct {
 	recordProcessor kcl.IRecordProcessor
 	kclConfig       *config.KinesisClientLibConfiguration
 	stop            *chan struct{}
-	waitGroup       *sync.WaitGroup
 	consumerID      string
 	mService        metrics.MonitoringService
 	state           ShardConsumerState
@@ -126,7 +126,6 @@ func (sc *ShardConsumer) getShardIterator(shard *par.ShardStatus) (*string, erro
 // getRecords continously poll one shard for data record
 // Precondition: it currently has the lease on the shard.
 func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
-	defer sc.waitGroup.Done()
 	defer sc.releaseLease(shard)
 
 	// If the shard is child shard, need to wait until the parent finished.

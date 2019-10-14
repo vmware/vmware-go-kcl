@@ -200,8 +200,7 @@ func (w *Worker) initialize() error {
 	stopChan := make(chan struct{})
 	w.stop = &stopChan
 
-	wg := sync.WaitGroup{}
-	w.waitGroup = &wg
+	w.waitGroup = &sync.WaitGroup{}
 
 	log.Info("Initialization complete.")
 
@@ -219,7 +218,6 @@ func (w *Worker) newShardConsumer(shard *par.ShardStatus) *ShardConsumer {
 		kclConfig:       w.kclConfig,
 		consumerID:      w.workerID,
 		stop:            w.stop,
-		waitGroup:       w.waitGroup,
 		mService:        w.mService,
 		state:           WAITING_ON_PARENT_SHARDS,
 	}
@@ -282,8 +280,11 @@ func (w *Worker) eventLoop() {
 
 				log.Infof("Start Shard Consumer for shard: %v", shard.ID)
 				sc := w.newShardConsumer(shard)
-				go sc.getRecords(shard)
 				w.waitGroup.Add(1)
+				go func() {
+					defer w.waitGroup.Done()
+					sc.getRecords(shard)
+				}()
 				// exit from for loop and not to grab more shard for now.
 				break
 			}
