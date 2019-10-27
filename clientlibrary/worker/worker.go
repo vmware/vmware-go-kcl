@@ -32,8 +32,6 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/kinesis"
@@ -105,19 +103,20 @@ func (w *Worker) WithCheckpointer(checker chk.Checkpointer) *Worker {
 
 // Run starts consuming data from the stream, and pass it to the application record processors.
 func (w *Worker) Start() error {
+	log := w.kclConfig.Logger
 	if err := w.initialize(); err != nil {
 		log.Errorf("Failed to initialize Worker: %+v", err)
 		return err
 	}
 
 	// Start monitoring service
-	log.Info("Starting monitoring service.")
+	log.Infof("Starting monitoring service.")
 	if err := w.mService.Start(); err != nil {
 		log.Errorf("Failed to start monitoring service: %+v", err)
 		return err
 	}
 
-	log.Info("Starting worker event loop.")
+	log.Infof("Starting worker event loop.")
 	// entering event loop
 	go w.eventLoop()
 	return nil
@@ -125,7 +124,8 @@ func (w *Worker) Start() error {
 
 // Shutdown signals worker to shutdown. Worker will try initiating shutdown of all record processors.
 func (w *Worker) Shutdown() {
-	log.Info("Worker shutdown in requested.")
+	log := w.kclConfig.Logger
+	log.Infof("Worker shutdown in requested.")
 
 	if w.done {
 		return
@@ -136,11 +136,12 @@ func (w *Worker) Shutdown() {
 	w.waitGroup.Wait()
 
 	w.mService.Shutdown()
-	log.Info("Worker loop is complete. Exiting from worker.")
+	log.Infof("Worker loop is complete. Exiting from worker.")
 }
 
 // Publish to write some data into stream. This function is mainly used for testing purpose.
 func (w *Worker) Publish(streamName, partitionKey string, data []byte) error {
+	log := w.kclConfig.Logger
 	_, err := w.kc.PutRecord(&kinesis.PutRecordInput{
 		Data:         data,
 		StreamName:   aws.String(streamName),
@@ -154,12 +155,13 @@ func (w *Worker) Publish(streamName, partitionKey string, data []byte) error {
 
 // initialize
 func (w *Worker) initialize() error {
-	log.Info("Worker initialization in progress...")
+	log := w.kclConfig.Logger
+	log.Infof("Worker initialization in progress...")
 
 	// Create default Kinesis session
 	if w.kc == nil {
 		// create session for Kinesis
-		log.Info("Creating Kinesis session")
+		log.Infof("Creating Kinesis session")
 
 		s, err := session.NewSession(&aws.Config{
 			Region:      aws.String(w.regionName),
@@ -173,15 +175,15 @@ func (w *Worker) initialize() error {
 		}
 		w.kc = kinesis.New(s)
 	} else {
-		log.Info("Use custom Kinesis service.")
+		log.Infof("Use custom Kinesis service.")
 	}
 
 	// Create default dynamodb based checkpointer implementation
 	if w.checkpointer == nil {
-		log.Info("Creating DynamoDB based checkpointer")
+		log.Infof("Creating DynamoDB based checkpointer")
 		w.checkpointer = chk.NewDynamoCheckpoint(w.kclConfig)
 	} else {
-		log.Info("Use custom checkpointer implementation.")
+		log.Infof("Use custom checkpointer implementation.")
 	}
 
 	err := w.metricsConfig.Init(w.kclConfig.ApplicationName, w.streamName, w.workerID)
@@ -190,7 +192,7 @@ func (w *Worker) initialize() error {
 	}
 	w.mService = w.metricsConfig.GetMonitoringService()
 
-	log.Info("Initializing Checkpointer")
+	log.Infof("Initializing Checkpointer")
 	if err := w.checkpointer.Init(); err != nil {
 		log.Errorf("Failed to start Checkpointer: %+v", err)
 		return err
@@ -203,7 +205,7 @@ func (w *Worker) initialize() error {
 
 	w.waitGroup = &sync.WaitGroup{}
 
-	log.Info("Initialization complete.")
+	log.Infof("Initialization complete.")
 
 	return nil
 }
@@ -226,6 +228,8 @@ func (w *Worker) newShardConsumer(shard *par.ShardStatus) *ShardConsumer {
 
 // eventLoop
 func (w *Worker) eventLoop() {
+	log := w.kclConfig.Logger
+
 	for {
 		err := w.syncShard()
 		if err != nil {
@@ -271,7 +275,7 @@ func (w *Worker) eventLoop() {
 				if err != nil {
 					// cannot get lease on the shard
 					if err.Error() != chk.ErrLeaseNotAquired {
-						log.Error(err)
+						log.Errorf("Cannot get lease: %+v", err)
 					}
 					continue
 				}
@@ -284,7 +288,9 @@ func (w *Worker) eventLoop() {
 				w.waitGroup.Add(1)
 				go func() {
 					defer w.waitGroup.Done()
-					sc.getRecords(shard)
+					if err := sc.getRecords(shard); err != nil {
+						log.Errorf("Error in getRecords: %+v", err)
+					}
 				}()
 				// exit from for loop and not to grab more shard for now.
 				break
@@ -293,7 +299,7 @@ func (w *Worker) eventLoop() {
 
 		select {
 		case <-*w.stop:
-			log.Info("Shutting down...")
+			log.Infof("Shutting down...")
 			return
 		case <-time.After(time.Duration(w.kclConfig.ShardSyncIntervalMillis) * time.Millisecond):
 		}
@@ -303,6 +309,7 @@ func (w *Worker) eventLoop() {
 // List all ACTIVE shard and store them into shardStatus table
 // If shard has been removed, need to exclude it from cached shard status.
 func (w *Worker) getShardIDs(startShardID string, shardInfo map[string]bool) error {
+	log := w.kclConfig.Logger
 	// The default pagination limit is 100.
 	args := &kinesis.DescribeStreamInput{
 		StreamName: aws.String(w.streamName),
@@ -355,6 +362,7 @@ func (w *Worker) getShardIDs(startShardID string, shardInfo map[string]bool) err
 
 // syncShard to sync the cached shard info with actual shard info from Kinesis
 func (w *Worker) syncShard() error {
+	log := w.kclConfig.Logger
 	shardInfo := make(map[string]bool)
 	err := w.getShardIDs("", shardInfo)
 

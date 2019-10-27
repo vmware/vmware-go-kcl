@@ -32,8 +32,6 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/kinesis"
@@ -86,6 +84,8 @@ type ShardConsumer struct {
 }
 
 func (sc *ShardConsumer) getShardIterator(shard *par.ShardStatus) (*string, error) {
+	log := sc.kclConfig.Logger
+
 	// Get checkpoint of the shard from dynamoDB
 	err := sc.checkpointer.FetchCheckpoint(shard)
 	if err != nil && err != chk.ErrSequenceIDNotFound {
@@ -127,6 +127,8 @@ func (sc *ShardConsumer) getShardIterator(shard *par.ShardStatus) (*string, erro
 // Precondition: it currently has the lease on the shard.
 func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 	defer sc.releaseLease(shard)
+
+	log := sc.kclConfig.Logger
 
 	// If the shard is child shard, need to wait until the parent finished.
 	if err := sc.waitOnParentShard(shard); err != nil {
@@ -282,6 +284,7 @@ func (sc *ShardConsumer) waitOnParentShard(shard *par.ShardStatus) error {
 
 // Cleanup the internal lease cache
 func (sc *ShardConsumer) releaseLease(shard *par.ShardStatus) {
+	log := sc.kclConfig.Logger
 	log.Infof("Release lease for shard %s", shard.ID)
 	shard.SetLeaseOwner("")
 

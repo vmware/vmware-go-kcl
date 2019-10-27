@@ -41,6 +41,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	creds "github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/vmware/vmware-go-kcl/logger"
 )
 
 const (
@@ -256,6 +257,9 @@ type (
 		// Worker should skip syncing shards and leases at startup if leases are present
 		// This is useful for optimizing deployments to large fleets working on a stable stream.
 		SkipShardSyncAtWorkerInitializationIfLeasesExist bool
+
+		// Logger used to log message.
+		Logger logger.Logger
 	}
 )
 
