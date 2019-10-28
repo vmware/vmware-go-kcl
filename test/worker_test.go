@@ -63,7 +63,7 @@ func TestWorker(t *testing.T) {
 		EnableFile:        true,
 		FileLevel:         logger.Info,
 		FileJSONFormat:    true,
-		FileLocation:      "log.log",
+		Filename:          "log.log",
 	}
 	// Use logrus logger
 	log := logger.NewLogrusLoggerWithConfig(config)
@@ -95,7 +95,7 @@ func TestWorkerWithSigInt(t *testing.T) {
 		EnableFile:        true,
 		FileLevel:         logger.Info,
 		FileJSONFormat:    true,
-		FileLocation:      "log.log",
+		Filename:          "log.log",
 	}
 	// use zap logger
 	log := logger.NewZapLoggerWithConfig(config)

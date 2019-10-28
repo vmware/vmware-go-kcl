@@ -38,7 +38,7 @@ func TestZapLoggerWithConfig(t *testing.T) {
 		EnableFile:        true,
 		FileLevel:         logger.Info,
 		FileJSONFormat:    true,
-		FileLocation:      "log.log",
+		Filename:          "log.log",
 	}
 
 	log := logger.NewZapLoggerWithConfig(config)
@@ -67,7 +67,7 @@ func TestLogrusLoggerWithConfig(t *testing.T) {
 		EnableFile:        true,
 		FileLevel:         logger.Info,
 		FileJSONFormat:    true,
-		FileLocation:      "log.log",
+		Filename:          "log.log",
 	}
 
 	log := logger.NewLogrusLoggerWithConfig(config)
