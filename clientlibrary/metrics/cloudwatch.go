@@ -28,15 +28,16 @@
 package metrics
 
 import (
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
-	log "github.com/sirupsen/logrus"
+
+	"github.com/vmware/vmware-go-kcl/logger"
 )
 
 type CloudWatchMonitoringService struct {
@@ -45,6 +46,7 @@ type CloudWatchMonitoringService struct {
 	WorkerID      string
 	Region        string
 	Credentials   *credentials.Credentials
+	Logger        logger.Logger
 
 	// control how often to pusblish to CloudWatch
 	MetricsBufferTimeMillis int
@@ -72,7 +74,7 @@ func (cw *CloudWatchMonitoringService) Init() error {
 	cfg.Credentials = cw.Credentials
 	s, err := session.NewSession(cfg)
 	if err != nil {
-		log.Errorf("Error in creating session for cloudwatch. %+v", err)
+		cw.Logger.Errorf("Error in creating session for cloudwatch. %+v", err)
 		return err
 	}
 	cw.svc = cloudwatch.New(s)
@@ -94,10 +96,10 @@ func (cw *CloudWatchMonitoringService) Start() error {
 }
 
 func (cw *CloudWatchMonitoringService) Shutdown() {
-	log.Info("Shutting down cloudwatch metrics system...")
+	cw.Logger.Infof("Shutting down cloudwatch metrics system...")
 	close(*cw.stop)
 	cw.waitGroup.Wait()
-	log.Info("Cloudwatch metrics system has been shutdown.")
+	cw.Logger.Infof("Cloudwatch metrics system has been shutdown.")
 }
 
 // Start daemon to flush metrics periodically
@@ -106,14 +108,14 @@ func (cw *CloudWatchMonitoringService) eventloop() {
 
 	for {
 		if err := cw.flush(); err != nil {
-			log.Errorf("Error sending metrics to CloudWatch. %+v", err)
+			cw.Logger.Errorf("Error sending metrics to CloudWatch. %+v", err)
 		}
 
 		select {
 		case <-*cw.stop:
-			log.Info("Shutting down monitoring system")
+			cw.Logger.Infof("Shutting down monitoring system")
 			if err := cw.flush(); err != nil {
-				log.Errorf("Error sending metrics to CloudWatch. %+v", err)
+				cw.Logger.Errorf("Error sending metrics to CloudWatch. %+v", err)
 			}
 			return
 		case <-time.After(time.Duration(cw.MetricsBufferTimeMillis) * time.Millisecond):
@@ -237,7 +239,7 @@ func (cw *CloudWatchMonitoringService) flushShard(shard string, metric *cloudWat
 		metric.getRecordsTime = []float64{}
 		metric.processRecordsTime = []float64{}
 	} else {
-		log.Errorf("Error in publishing cloudwatch metrics. Error: %+v", err)
+		cw.Logger.Errorf("Error in publishing cloudwatch metrics. Error: %+v", err)
 	}
 
 	metric.Unlock()
@@ -245,7 +247,7 @@ func (cw *CloudWatchMonitoringService) flushShard(shard string, metric *cloudWat
 }
 
 func (cw *CloudWatchMonitoringService) flush() error {
-	log.Debugf("Flushing metrics data. Stream: %s, Worker: %s", cw.KinesisStream, cw.WorkerID)
+	cw.Logger.Debugf("Flushing metrics data. Stream: %s, Worker: %s", cw.KinesisStream, cw.WorkerID)
 	// publish per shard metrics
 	cw.shardMetrics.Range(func(k, v interface{}) bool {
 		shard, metric := k.(string), v.(*cloudWatchMetrics)

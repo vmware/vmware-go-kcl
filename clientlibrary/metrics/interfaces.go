@@ -29,6 +29,7 @@ package metrics
 
 import (
 	"fmt"
+	"github.com/vmware/vmware-go-kcl/logger"
 )
 
 // MonitoringConfiguration allows you to configure how record processing metrics are exposed
@@ -38,6 +39,7 @@ type MonitoringConfiguration struct {
 	Prometheus        PrometheusMonitoringService
 	CloudWatch        CloudWatchMonitoringService
 	service           MonitoringService
+	Logger            logger.Logger
 }
 
 type MonitoringService interface {
@@ -60,18 +62,25 @@ func (m *MonitoringConfiguration) Init(nameSpace, streamName string, workerID st
 		return nil
 	}
 
+	// Config with default logger if logger is not specified.
+	if m.Logger == nil {
+		m.Logger = logger.GetDefaultLogger()
+	}
+
 	switch m.MonitoringService {
 	case "prometheus":
 		m.Prometheus.Namespace = nameSpace
 		m.Prometheus.KinesisStream = streamName
 		m.Prometheus.WorkerID = workerID
 		m.Prometheus.Region = m.Region
+		m.Prometheus.Logger = m.Logger
 		m.service = &m.Prometheus
 	case "cloudwatch":
 		m.CloudWatch.Namespace = nameSpace
 		m.CloudWatch.KinesisStream = streamName
 		m.CloudWatch.WorkerID = workerID
 		m.CloudWatch.Region = m.Region
+		m.CloudWatch.Logger = m.Logger
 		m.service = &m.CloudWatch
 	default:
 		return fmt.Errorf("Invalid monitoring service type %s", m.MonitoringService)

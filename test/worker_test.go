@@ -19,9 +19,6 @@
 package test
 
 import (
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"net/http"
 	"os"
 	"os/signal"
@@ -30,15 +27,17 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/prometheus/common/expfmt"
-	log "github.com/sirupsen/logrus"
-
 	"github.com/stretchr/testify/assert"
 	cfg "github.com/vmware/vmware-go-kcl/clientlibrary/config"
 	kc "github.com/vmware/vmware-go-kcl/clientlibrary/interfaces"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
 	wk "github.com/vmware/vmware-go-kcl/clientlibrary/worker"
+	"github.com/vmware/vmware-go-kcl/logger"
 )
 
 const (
@@ -53,6 +52,22 @@ const metricsSystem = "cloudwatch"
 var shardID string
 
 func TestWorker(t *testing.T) {
+	// At miminal. use standard logrus logger
+	// log := logger.NewLogrusLogger(logrus.StandardLogger())
+	//
+	// In order to have precise control over logging. Use logger with config
+	config := logger.Configuration{
+		EnableConsole:     true,
+		ConsoleLevel:      logger.Debug,
+		ConsoleJSONFormat: false,
+		EnableFile:        true,
+		FileLevel:         logger.Info,
+		FileJSONFormat:    true,
+		Filename:          "log.log",
+	}
+	// Use logrus logger
+	log := logger.NewLogrusLoggerWithConfig(config)
+
 	kclConfig := cfg.NewKinesisClientLibConfig("appName", streamName, regionName, workerID).
 		WithInitialPositionInStream(cfg.LATEST).
 		WithMaxRecords(10).
@@ -60,12 +75,31 @@ func TestWorker(t *testing.T) {
 		WithShardSyncIntervalMillis(5000).
 		WithFailoverTimeMillis(300000).
 		WithMetricsBufferTimeMillis(10000).
-		WithMetricsMaxQueueSize(20)
+		WithMetricsMaxQueueSize(20).
+		WithLogger(log)
 
 	runTest(kclConfig, false, t)
 }
 
 func TestWorkerWithSigInt(t *testing.T) {
+	// At miminal. use standard zap logger
+	//zapLogger, err := zap.NewProduction()
+	//assert.Nil(t, err)
+	//log := logger.NewZapLogger(zapLogger.Sugar())
+	//
+	// In order to have precise control over logging. Use logger with config.
+	config := logger.Configuration{
+		EnableConsole:     true,
+		ConsoleLevel:      logger.Debug,
+		ConsoleJSONFormat: true,
+		EnableFile:        true,
+		FileLevel:         logger.Info,
+		FileJSONFormat:    true,
+		Filename:          "log.log",
+	}
+	// use zap logger
+	log := logger.NewZapLoggerWithConfig(config)
+
 	kclConfig := cfg.NewKinesisClientLibConfig("appName", streamName, regionName, workerID).
 		WithInitialPositionInStream(cfg.LATEST).
 		WithMaxRecords(10).
@@ -73,7 +107,8 @@ func TestWorkerWithSigInt(t *testing.T) {
 		WithShardSyncIntervalMillis(5000).
 		WithFailoverTimeMillis(300000).
 		WithMetricsBufferTimeMillis(10000).
-		WithMetricsMaxQueueSize(20)
+		WithMetricsMaxQueueSize(20).
+		WithLogger(log)
 
 	runTest(kclConfig, true, t)
 }
@@ -120,9 +155,6 @@ func TestWorkerAssumeRole(t *testing.T) {
 }
 
 func runTest(kclConfig *cfg.KinesisClientLibConfiguration, triggersig bool, t *testing.T) {
-	log.SetOutput(os.Stdout)
-	log.SetLevel(log.DebugLevel)
-
 	assert.Equal(t, regionName, kclConfig.RegionName)
 	assert.Equal(t, streamName, kclConfig.StreamName)
 
@@ -192,6 +224,7 @@ func getMetricsConfig(kclConfig *cfg.KinesisClientLibConfiguration, service stri
 		return &metrics.MonitoringConfiguration{
 			MonitoringService: "cloudwatch",
 			Region:            regionName,
+			Logger:            kclConfig.Logger,
 			CloudWatch: metrics.CloudWatchMonitoringService{
 				Credentials: kclConfig.CloudWatchCredentials,
 				// Those value should come from kclConfig
@@ -205,6 +238,7 @@ func getMetricsConfig(kclConfig *cfg.KinesisClientLibConfiguration, service stri
 		return &metrics.MonitoringConfiguration{
 			MonitoringService: "prometheus",
 			Region:            regionName,
+			Logger:            kclConfig.Logger,
 			Prometheus: metrics.PrometheusMonitoringService{
 				ListenAddress: ":8080",
 			},

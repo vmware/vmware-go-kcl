@@ -32,7 +32,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
+
+	"github.com/vmware/vmware-go-kcl/logger"
 )
 
 // PrometheusMonitoringService to start Prometheus as metrics system.
@@ -41,10 +42,12 @@ import (
 type PrometheusMonitoringService struct {
 	ListenAddress string
 
-	Namespace          string
-	KinesisStream      string
-	WorkerID           string
-	Region             string
+	Namespace     string
+	KinesisStream string
+	WorkerID      string
+	Region        string
+	Logger        logger.Logger
+
 	processedRecords   *prometheus.CounterVec
 	processedBytes     *prometheus.CounterVec
 	behindLatestMillis *prometheus.GaugeVec
@@ -106,12 +109,12 @@ func (p *PrometheusMonitoringService) Init() error {
 func (p *PrometheusMonitoringService) Start() error {
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
-		log.Infof("Starting Prometheus listener on %s", p.ListenAddress)
+		p.Logger.Infof("Starting Prometheus listener on %s", p.ListenAddress)
 		err := http.ListenAndServe(p.ListenAddress, nil)
 		if err != nil {
-			log.Errorf("Error starting Prometheus metrics endpoint. %+v", err)
+			p.Logger.Errorf("Error starting Prometheus metrics endpoint. %+v", err)
 		}
-		log.Info("Stopped metrics server")
+		p.Logger.Infof("Stopped metrics server")
 	}()
 
 	return nil

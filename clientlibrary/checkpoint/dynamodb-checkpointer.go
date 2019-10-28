@@ -29,18 +29,18 @@ package checkpoint
 
 import (
 	"errors"
-	"github.com/aws/aws-sdk-go/aws/client"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/client"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/vmware/vmware-go-kcl/clientlibrary/config"
 	par "github.com/vmware/vmware-go-kcl/clientlibrary/partition"
+	"github.com/vmware/vmware-go-kcl/logger"
 )
 
 const (
@@ -53,18 +53,20 @@ const (
 
 // DynamoCheckpoint implements the Checkpoint interface using DynamoDB as a backend
 type DynamoCheckpoint struct {
+	log                     logger.Logger
 	TableName               string
 	leaseTableReadCapacity  int64
 	leaseTableWriteCapacity int64
 
-	LeaseDuration  int
-	svc            dynamodbiface.DynamoDBAPI
-	kclConfig      *config.KinesisClientLibConfiguration
-	Retries        int
+	LeaseDuration int
+	svc           dynamodbiface.DynamoDBAPI
+	kclConfig     *config.KinesisClientLibConfiguration
+	Retries       int
 }
 
 func NewDynamoCheckpoint(kclConfig *config.KinesisClientLibConfiguration) *DynamoCheckpoint {
 	checkpointer := &DynamoCheckpoint{
+		log:                     kclConfig.Logger,
 		TableName:               kclConfig.TableName,
 		leaseTableReadCapacity:  int64(kclConfig.InitialLeaseTableReadCapacity),
 		leaseTableWriteCapacity: int64(kclConfig.InitialLeaseTableWriteCapacity),
@@ -84,7 +86,7 @@ func (checkpointer *DynamoCheckpoint) WithDynamoDB(svc dynamodbiface.DynamoDBAPI
 
 // Init initialises the DynamoDB Checkpoint
 func (checkpointer *DynamoCheckpoint) Init() error {
-	log.Info("Creating DynamoDB session")
+	checkpointer.log.Infof("Creating DynamoDB session")
 
 	s, err := session.NewSession(&aws.Config{
 		Region:      aws.String(checkpointer.kclConfig.RegionName),
@@ -95,7 +97,7 @@ func (checkpointer *DynamoCheckpoint) Init() error {
 
 	if err != nil {
 		// no need to move forward
-		log.Fatalf("Failed in getting DynamoDB session for creating Worker: %+v", err)
+		checkpointer.log.Fatalf("Failed in getting DynamoDB session for creating Worker: %+v", err)
 	}
 
 	if checkpointer.svc == nil {
@@ -137,7 +139,7 @@ func (checkpointer *DynamoCheckpoint) GetLease(shard *par.ShardStatus, newAssign
 			return errors.New(ErrLeaseNotAquired)
 		}
 
-		log.Debugf("Attempting to get a lock for shard: %s, leaseTimeout: %s, assignedTo: %s", shard.ID, currentLeaseTimeout, assignedTo)
+		checkpointer.log.Debugf("Attempting to get a lock for shard: %s, leaseTimeout: %s, assignedTo: %s", shard.ID, currentLeaseTimeout, assignedTo)
 		conditionalExpression = "ShardID = :id AND AssignedTo = :assigned_to AND LeaseTimeout = :lease_timeout"
 		expressionAttributeValues = map[string]*dynamodb.AttributeValue{
 			":id": {
@@ -228,7 +230,7 @@ func (checkpointer *DynamoCheckpoint) FetchCheckpoint(shard *par.ShardStatus) er
 	if !ok {
 		return ErrSequenceIDNotFound
 	}
-	log.Debugf("Retrieved Shard Iterator %s", *sequenceID.S)
+	checkpointer.log.Debugf("Retrieved Shard Iterator %s", *sequenceID.S)
 	shard.Mux.Lock()
 	defer shard.Mux.Unlock()
 	shard.Checkpoint = aws.StringValue(sequenceID.S)
@@ -244,9 +246,9 @@ func (checkpointer *DynamoCheckpoint) RemoveLeaseInfo(shardID string) error {
 	err := checkpointer.removeItem(shardID)
 
 	if err != nil {
-		log.Errorf("Error in removing lease info for shard: %s, Error: %+v", shardID, err)
+		checkpointer.log.Errorf("Error in removing lease info for shard: %s, Error: %+v", shardID, err)
 	} else {
-		log.Infof("Lease info for shard: %s has been removed.", shardID)
+		checkpointer.log.Infof("Lease info for shard: %s has been removed.", shardID)
 	}
 
 	return err
