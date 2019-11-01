@@ -81,6 +81,30 @@ func TestWorker(t *testing.T) {
 	runTest(kclConfig, false, t)
 }
 
+func TestWorkerWithTimestamp(t *testing.T) {
+	// In order to have precise control over logging. Use logger with config
+	config := logger.Configuration{
+		EnableConsole:     true,
+		ConsoleLevel:      logger.Debug,
+		ConsoleJSONFormat: false,
+	}
+	// Use logrus logger
+	log := logger.NewLogrusLoggerWithConfig(config)
+
+	ts := time.Now().Add(time.Second * 5)
+	kclConfig := cfg.NewKinesisClientLibConfig("appName", streamName, regionName, workerID).
+		WithTimestampAtInitialPositionInStream(&ts).
+		WithMaxRecords(10).
+		WithMaxLeasesForWorker(1).
+		WithShardSyncIntervalMillis(5000).
+		WithFailoverTimeMillis(300000).
+		WithMetricsBufferTimeMillis(10000).
+		WithMetricsMaxQueueSize(20).
+		WithLogger(log)
+
+	runTest(kclConfig, false, t)
+}
+
 func TestWorkerWithSigInt(t *testing.T) {
 	// At miminal. use standard zap logger
 	//zapLogger, err := zap.NewProduction()
