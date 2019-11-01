@@ -95,13 +95,26 @@ func (sc *ShardConsumer) getShardIterator(shard *par.ShardStatus) (*string, erro
 	// If there isn't any checkpoint for the shard, use the configuration value.
 	if shard.Checkpoint == "" {
 		initPos := sc.kclConfig.InitialPositionInStream
+		shardIteratorType := config.InitalPositionInStreamToShardIteratorType(initPos)
 		log.Debugf("No checkpoint recorded for shard: %v, starting with: %v", shard.ID,
-			aws.StringValue(config.InitalPositionInStreamToShardIteratorType(initPos)))
-		shardIterArgs := &kinesis.GetShardIteratorInput{
-			ShardId:           &shard.ID,
-			ShardIteratorType: config.InitalPositionInStreamToShardIteratorType(initPos),
-			StreamName:        &sc.streamName,
+			aws.StringValue(shardIteratorType))
+
+		var shardIterArgs *kinesis.GetShardIteratorInput
+		if initPos == config.AT_TIMESTAMP {
+			shardIterArgs = &kinesis.GetShardIteratorInput{
+				ShardId:           &shard.ID,
+				ShardIteratorType: shardIteratorType,
+				Timestamp:         sc.kclConfig.InitialPositionInStreamExtended.Timestamp,
+				StreamName:        &sc.streamName,
+			}
+		} else {
+			shardIterArgs = &kinesis.GetShardIteratorInput{
+				ShardId:           &shard.ID,
+				ShardIteratorType: shardIteratorType,
+				StreamName:        &sc.streamName,
+			}
 		}
+
 		iterResp, err := sc.kc.GetShardIterator(shardIterArgs)
 		if err != nil {
 			return nil, err
