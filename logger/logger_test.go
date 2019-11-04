@@ -21,41 +21,10 @@
 package logger
 
 import (
-	"github.com/stretchr/testify/assert"
+	"testing"
 
 	"github.com/sirupsen/logrus"
-	"go.uber.org/zap"
-	"testing"
 )
-
-func TestZapLoggerWithConfig(t *testing.T) {
-	config := Configuration{
-		EnableConsole:     true,
-		ConsoleLevel:      Debug,
-		ConsoleJSONFormat: true,
-		EnableFile:        false,
-		FileLevel:         Info,
-		FileJSONFormat:    true,
-		Filename:          "log.log",
-	}
-
-	log := NewZapLoggerWithConfig(config)
-
-	contextLogger := log.WithFields(Fields{"key1": "value1"})
-	contextLogger.Debugf("Starting with zap")
-	contextLogger.Infof("Zap is awesome")
-}
-
-func TestZapLogger(t *testing.T) {
-	zapLogger, err := zap.NewProduction()
-	assert.Nil(t, err)
-
-	log := NewZapLogger(zapLogger.Sugar())
-
-	contextLogger := log.WithFields(Fields{"key1": "value1"})
-	contextLogger.Debugf("Starting with zap")
-	contextLogger.Infof("Zap is awesome")
-}
 
 func TestLogrusLoggerWithConfig(t *testing.T) {
 	config := Configuration{
