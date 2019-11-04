@@ -19,18 +19,19 @@
 // Note: The implementation comes from https://www.mountedthoughts.com/golang-logger-interface/
 // https://github.com/amitrai48/logger
 
-package logger
+package zap
 
 import (
 	"os"
 
-	"go.uber.org/zap"
+	"github.com/vmware/vmware-go-kcl/logger"
+	uzap "go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
 type ZapLogger struct {
-	sugaredLogger *zap.SugaredLogger
+	sugaredLogger *uzap.SugaredLogger
 }
 
 // NewZapLogger adapts existing sugared zap logger to Logger interface.
@@ -44,7 +45,7 @@ type ZapLogger struct {
 // Base zap logger can be convert to SugaredLogger by calling to add a wrapper:
 // sugaredLogger := log.Sugar()
 //
-func NewZapLogger(logger *zap.SugaredLogger) Logger {
+func NewZapLogger(logger *uzap.SugaredLogger) logger.Logger {
 	return &ZapLogger{
 		sugaredLogger: logger,
 	}
@@ -52,7 +53,7 @@ func NewZapLogger(logger *zap.SugaredLogger) Logger {
 
 // NewZapLoggerWithConfig creates and configs Logger instance backed by
 // zap Sugared logger.
-func NewZapLoggerWithConfig(config Configuration) Logger {
+func NewZapLoggerWithConfig(config logger.Configuration) logger.Logger {
 	cores := []zapcore.Core{}
 
 	if config.EnableConsole {
@@ -80,9 +81,9 @@ func NewZapLoggerWithConfig(config Configuration) Logger {
 
 	// AddCallerSkip skips 2 number of callers, this is important else the file that gets
 	// logged will always be the wrapped file. In our case zap.go
-	logger := zap.New(combinedCore,
-		zap.AddCallerSkip(2),
-		zap.AddCaller(),
+	logger := uzap.New(combinedCore,
+		uzap.AddCallerSkip(2),
+		uzap.AddCaller(),
 	).Sugar()
 
 	return &ZapLogger{
@@ -114,7 +115,7 @@ func (l *ZapLogger) Panicf(format string, args ...interface{}) {
 	l.sugaredLogger.Fatalf(format, args...)
 }
 
-func (l *ZapLogger) WithFields(fields Fields) Logger {
+func (l *ZapLogger) WithFields(fields logger.Fields) logger.Logger {
 	var f = make([]interface{}, 0)
 	for k, v := range fields {
 		f = append(f, k)
@@ -125,7 +126,7 @@ func (l *ZapLogger) WithFields(fields Fields) Logger {
 }
 
 func getEncoder(isJSON bool) zapcore.Encoder {
-	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig := uzap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	if isJSON {
 		return zapcore.NewJSONEncoder(encoderConfig)
@@ -135,15 +136,15 @@ func getEncoder(isJSON bool) zapcore.Encoder {
 
 func getZapLevel(level string) zapcore.Level {
 	switch level {
-	case Info:
+	case logger.Info:
 		return zapcore.InfoLevel
-	case Warn:
+	case logger.Warn:
 		return zapcore.WarnLevel
-	case Debug:
+	case logger.Debug:
 		return zapcore.DebugLevel
-	case Error:
+	case logger.Error:
 		return zapcore.ErrorLevel
-	case Fatal:
+	case logger.Fatal:
 		return zapcore.FatalLevel
 	default:
 		return zapcore.InfoLevel
