@@ -28,6 +28,7 @@ import (
 	"testing"
 
 	"github.com/vmware/vmware-go-kcl/logger"
+	zaplogger "github.com/vmware/vmware-go-kcl/logger/zap"
 )
 
 func TestZapLoggerWithConfig(t *testing.T) {
@@ -41,7 +42,7 @@ func TestZapLoggerWithConfig(t *testing.T) {
 		Filename:          "log.log",
 	}
 
-	log := logger.NewZapLoggerWithConfig(config)
+	log := zaplogger.NewZapLoggerWithConfig(config)
 
 	contextLogger := log.WithFields(logger.Fields{"key1": "value1"})
 	contextLogger.Debugf("Starting with zap")
@@ -52,7 +53,7 @@ func TestZapLogger(t *testing.T) {
 	zapLogger, err := zap.NewProduction()
 	assert.Nil(t, err)
 
-	log := logger.NewZapLogger(zapLogger.Sugar())
+	log := zaplogger.NewZapLogger(zapLogger.Sugar())
 
 	contextLogger := log.WithFields(logger.Fields{"key1": "value1"})
 	contextLogger.Debugf("Starting with zap")
