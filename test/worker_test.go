@@ -38,6 +38,7 @@ import (
 	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
 	wk "github.com/vmware/vmware-go-kcl/clientlibrary/worker"
 	"github.com/vmware/vmware-go-kcl/logger"
+	zaplogger "github.com/vmware/vmware-go-kcl/logger/zap"
 )
 
 const (
@@ -109,7 +110,7 @@ func TestWorkerWithSigInt(t *testing.T) {
 	// At miminal. use standard zap logger
 	//zapLogger, err := zap.NewProduction()
 	//assert.Nil(t, err)
-	//log := logger.NewZapLogger(zapLogger.Sugar())
+	//log := zaplogger.NewZapLogger(zapLogger.Sugar())
 	//
 	// In order to have precise control over logging. Use logger with config.
 	config := logger.Configuration{
@@ -122,7 +123,7 @@ func TestWorkerWithSigInt(t *testing.T) {
 		Filename:          "log.log",
 	}
 	// use zap logger
-	log := logger.NewZapLoggerWithConfig(config)
+	log := zaplogger.NewZapLoggerWithConfig(config)
 
 	kclConfig := cfg.NewKinesisClientLibConfig("appName", streamName, regionName, workerID).
 		WithInitialPositionInStream(cfg.LATEST).
