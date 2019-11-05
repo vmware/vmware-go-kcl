@@ -40,17 +40,19 @@ import (
 	"github.com/vmware/vmware-go-kcl/logger"
 )
 
-type CloudWatchMonitoringService struct {
-	Namespace     string
-	KinesisStream string
-	WorkerID      string
-	Region        string
-	Credentials   *credentials.Credentials
-	Logger        logger.Logger
+// Buffer metrics for at most this long before publishing to CloudWatch.
+const DEFAULT_CLOUDWATCH_METRICS_BUFFER_DURATION = 10 * time.Second
 
-	// control how often to pusblish to CloudWatch
-	MetricsBufferTimeMillis int
-	MetricsMaxQueueSize     int
+type CloudWatchMonitoringService struct {
+	appName     string
+	streamName  string
+	workerID    string
+	region      string
+	credentials *credentials.Credentials
+	logger      logger.Logger
+
+	// control how often to publish to CloudWatch
+	bufferDuration time.Duration
 
 	stop         *chan struct{}
 	waitGroup    *sync.WaitGroup
@@ -69,12 +71,29 @@ type cloudWatchMetrics struct {
 	sync.Mutex
 }
 
-func (cw *CloudWatchMonitoringService) Init() error {
-	cfg := &aws.Config{Region: aws.String(cw.Region)}
-	cfg.Credentials = cw.Credentials
+// NewDefaultCloudWatchMonitoringService returns a CloudWatchMonitoringService
+// with the provided credentials.
+func NewDefaultCloudWatchMonitoringService(region string, creds *credentials.Credentials) *CloudWatchMonitoringService {
+	return NewDetailedCloudWatchMonitoringService(region, creds, logger.GetDefaultLogger(), DEFAULT_CLOUDWATCH_METRICS_BUFFER_DURATION)
+}
+
+// NewDetailedCloudWatchMonitoringService returns a CloudWatchMonitoringService
+// with the provided credentials, buffering duration and logger.
+func NewDetailedCloudWatchMonitoringService(region string, creds *credentials.Credentials, logger logger.Logger, bufferDur time.Duration) *CloudWatchMonitoringService {
+	return &CloudWatchMonitoringService{
+		region:         region,
+		credentials:    creds,
+		logger:         logger,
+		bufferDuration: bufferDur,
+	}
+}
+
+func (cw *CloudWatchMonitoringService) Init(appName, streamName, workerID string) error {
+	cfg := &aws.Config{Region: aws.String(cw.region)}
+	cfg.Credentials = cw.credentials
 	s, err := session.NewSession(cfg)
 	if err != nil {
-		cw.Logger.Errorf("Error in creating session for cloudwatch. %+v", err)
+		cw.logger.Errorf("Error in creating session for cloudwatch. %+v", err)
 		return err
 	}
 	cw.svc = cloudwatch.New(s)
@@ -96,10 +115,10 @@ func (cw *CloudWatchMonitoringService) Start() error {
 }
 
 func (cw *CloudWatchMonitoringService) Shutdown() {
-	cw.Logger.Infof("Shutting down cloudwatch metrics system...")
+	cw.logger.Infof("Shutting down cloudwatch metrics system...")
 	close(*cw.stop)
 	cw.waitGroup.Wait()
-	cw.Logger.Infof("Cloudwatch metrics system has been shutdown.")
+	cw.logger.Infof("Cloudwatch metrics system has been shutdown.")
 }
 
 // Start daemon to flush metrics periodically
@@ -108,17 +127,17 @@ func (cw *CloudWatchMonitoringService) eventloop() {
 
 	for {
 		if err := cw.flush(); err != nil {
-			cw.Logger.Errorf("Error sending metrics to CloudWatch. %+v", err)
+			cw.logger.Errorf("Error sending metrics to CloudWatch. %+v", err)
 		}
 
 		select {
 		case <-*cw.stop:
-			cw.Logger.Infof("Shutting down monitoring system")
+			cw.logger.Infof("Shutting down monitoring system")
 			if err := cw.flush(); err != nil {
-				cw.Logger.Errorf("Error sending metrics to CloudWatch. %+v", err)
+				cw.logger.Errorf("Error sending metrics to CloudWatch. %+v", err)
 			}
 			return
-		case <-time.After(time.Duration(cw.MetricsBufferTimeMillis) * time.Millisecond):
+		case <-time.After(cw.bufferDuration):
 		}
 	}
 }
@@ -132,7 +151,7 @@ func (cw *CloudWatchMonitoringService) flushShard(shard string, metric *cloudWat
 		},
 		{
 			Name:  aws.String("KinesisStreamName"),
-			Value: &cw.KinesisStream,
+			Value: &cw.streamName,
 		},
 	}
 
@@ -143,11 +162,11 @@ func (cw *CloudWatchMonitoringService) flushShard(shard string, metric *cloudWat
 		},
 		{
 			Name:  aws.String("KinesisStreamName"),
-			Value: &cw.KinesisStream,
+			Value: &cw.streamName,
 		},
 		{
 			Name:  aws.String("WorkerID"),
-			Value: &cw.WorkerID,
+			Value: &cw.workerID,
 		},
 	}
 	metricTimestamp := time.Now()
@@ -227,7 +246,7 @@ func (cw *CloudWatchMonitoringService) flushShard(shard string, metric *cloudWat
 
 	// Publish metrics data to cloud watch
 	_, err := cw.svc.PutMetricData(&cloudwatch.PutMetricDataInput{
-		Namespace:  aws.String(cw.Namespace),
+		Namespace:  aws.String(cw.appName),
 		MetricData: data,
 	})
 
@@ -239,7 +258,7 @@ func (cw *CloudWatchMonitoringService) flushShard(shard string, metric *cloudWat
 		metric.getRecordsTime = []float64{}
 		metric.processRecordsTime = []float64{}
 	} else {
-		cw.Logger.Errorf("Error in publishing cloudwatch metrics. Error: %+v", err)
+		cw.logger.Errorf("Error in publishing cloudwatch metrics. Error: %+v", err)
 	}
 
 	metric.Unlock()
@@ -247,7 +266,7 @@ func (cw *CloudWatchMonitoringService) flushShard(shard string, metric *cloudWat
 }
 
 func (cw *CloudWatchMonitoringService) flush() error {
-	cw.Logger.Debugf("Flushing metrics data. Stream: %s, Worker: %s", cw.KinesisStream, cw.WorkerID)
+	cw.logger.Debugf("Flushing metrics data. Stream: %s, Worker: %s", cw.streamName, cw.workerID)
 	// publish per shard metrics
 	cw.shardMetrics.Range(func(k, v interface{}) bool {
 		shard, metric := k.(string), v.(*cloudWatchMetrics)
