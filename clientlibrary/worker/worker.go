@@ -65,27 +65,27 @@ type Worker struct {
 
 	shardStatus map[string]*par.ShardStatus
 
-	metricsConfig *metrics.MonitoringConfiguration
-	mService      metrics.MonitoringService
+	mService metrics.MonitoringService
 }
 
 // NewWorker constructs a Worker instance for processing Kinesis stream data.
-func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisClientLibConfiguration, metricsConfig *metrics.MonitoringConfiguration) *Worker {
-	w := &Worker{
+func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisClientLibConfiguration, mService metrics.MonitoringService) *Worker {
+	if mService == nil {
+		// nil means noop monitor service. i.e. not emitting any metrics.
+		// we accept that, though the correct way to do it would be for the user
+		// to call WithoutMonitoringService on the kcl configuration.
+		mService = metrics.NoopMonitoringService{}
+	}
+
+	return &Worker{
 		streamName:       kclConfig.StreamName,
 		regionName:       kclConfig.RegionName,
 		workerID:         kclConfig.WorkerID,
 		processorFactory: factory,
 		kclConfig:        kclConfig,
-		metricsConfig:    metricsConfig,
+		mService:         mService,
 		done:             false,
 	}
-
-	if w.metricsConfig == nil {
-		// "" means noop monitor service. i.e. not emitting any metrics.
-		w.metricsConfig = &metrics.MonitoringConfiguration{MonitoringService: ""}
-	}
-	return w
 }
 
 // WithKinesis is used to provide Kinesis service for either custom implementation or unit testing.
@@ -186,11 +186,10 @@ func (w *Worker) initialize() error {
 		log.Infof("Use custom checkpointer implementation.")
 	}
 
-	err := w.metricsConfig.Init(w.kclConfig.ApplicationName, w.streamName, w.workerID)
+	err := w.mService.Init(w.kclConfig.ApplicationName, w.streamName, w.workerID)
 	if err != nil {
 		log.Errorf("Failed to start monitoring service: %+v", err)
 	}
-	w.mService = w.metricsConfig.GetMonitoringService()
 
 	log.Infof("Initializing Checkpointer")
 	if err := w.checkpointer.Init(); err != nil {
