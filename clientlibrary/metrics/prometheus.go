@@ -40,13 +40,12 @@ import (
 // It might be trick if the service onboarding with KCL also uses Prometheus.
 // Therefore, we should start cloudwatch metrics by default instead.
 type PrometheusMonitoringService struct {
-	ListenAddress string
-
-	Namespace     string
-	KinesisStream string
-	WorkerID      string
-	Region        string
-	Logger        logger.Logger
+	listenAddress string
+	namespace     string
+	streamName    string
+	workerID      string
+	region        string
+	logger        logger.Logger
 
 	processedRecords   *prometheus.CounterVec
 	processedBytes     *prometheus.CounterVec
@@ -57,33 +56,45 @@ type PrometheusMonitoringService struct {
 	processRecordsTime *prometheus.HistogramVec
 }
 
-func (p *PrometheusMonitoringService) Init() error {
+func NewPrometheusMonitoringService(listenAddress, region string, logger logger.Logger) *PrometheusMonitoringService {
+	return &PrometheusMonitoringService{
+		listenAddress: listenAddress,
+		region:        region,
+		logger:        logger,
+	}
+}
+
+func (p *PrometheusMonitoringService) Init(appName, streamName, workerID string) error {
+	p.namespace = appName
+	p.streamName = streamName
+	p.workerID = workerID
+
 	p.processedBytes = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: p.Namespace + `_processed_bytes`,
+		Name: p.namespace + `_processed_bytes`,
 		Help: "Number of bytes processed",
 	}, []string{"kinesisStream", "shard"})
 	p.processedRecords = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: p.Namespace + `_processed_records`,
+		Name: p.namespace + `_processed_records`,
 		Help: "Number of records processed",
 	}, []string{"kinesisStream", "shard"})
 	p.behindLatestMillis = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: p.Namespace + `_behind_latest_millis`,
+		Name: p.namespace + `_behind_latest_millis`,
 		Help: "The amount of milliseconds processing is behind",
 	}, []string{"kinesisStream", "shard"})
 	p.leasesHeld = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: p.Namespace + `_leases_held`,
+		Name: p.namespace + `_leases_held`,
 		Help: "The number of leases held by the worker",
 	}, []string{"kinesisStream", "shard", "workerID"})
 	p.leaseRenewals = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: p.Namespace + `_lease_renewals`,
+		Name: p.namespace + `_lease_renewals`,
 		Help: "The number of successful lease renewals",
 	}, []string{"kinesisStream", "shard", "workerID"})
 	p.getRecordsTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name: p.Namespace + `_get_records_duration_milliseconds`,
+		Name: p.namespace + `_get_records_duration_milliseconds`,
 		Help: "The time taken to fetch records and process them",
 	}, []string{"kinesisStream", "shard"})
 	p.processRecordsTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name: p.Namespace + `_process_records_duration_milliseconds`,
+		Name: p.namespace + `_process_records_duration_milliseconds`,
 		Help: "The time taken to process records",
 	}, []string{"kinesisStream", "shard"})
 
@@ -109,12 +120,12 @@ func (p *PrometheusMonitoringService) Init() error {
 func (p *PrometheusMonitoringService) Start() error {
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
-		p.Logger.Infof("Starting Prometheus listener on %s", p.ListenAddress)
-		err := http.ListenAndServe(p.ListenAddress, nil)
+		p.logger.Infof("Starting Prometheus listener on %s", p.listenAddress)
+		err := http.ListenAndServe(p.listenAddress, nil)
 		if err != nil {
-			p.Logger.Errorf("Error starting Prometheus metrics endpoint. %+v", err)
+			p.logger.Errorf("Error starting Prometheus metrics endpoint. %+v", err)
 		}
-		p.Logger.Infof("Stopped metrics server")
+		p.logger.Infof("Stopped metrics server")
 	}()
 
 	return nil
@@ -123,33 +134,33 @@ func (p *PrometheusMonitoringService) Start() error {
 func (p *PrometheusMonitoringService) Shutdown() {}
 
 func (p *PrometheusMonitoringService) IncrRecordsProcessed(shard string, count int) {
-	p.processedRecords.With(prometheus.Labels{"shard": shard, "kinesisStream": p.KinesisStream}).Add(float64(count))
+	p.processedRecords.With(prometheus.Labels{"shard": shard, "kinesisStream": p.streamName}).Add(float64(count))
 }
 
 func (p *PrometheusMonitoringService) IncrBytesProcessed(shard string, count int64) {
-	p.processedBytes.With(prometheus.Labels{"shard": shard, "kinesisStream": p.KinesisStream}).Add(float64(count))
+	p.processedBytes.With(prometheus.Labels{"shard": shard, "kinesisStream": p.streamName}).Add(float64(count))
 }
 
 func (p *PrometheusMonitoringService) MillisBehindLatest(shard string, millSeconds float64) {
-	p.behindLatestMillis.With(prometheus.Labels{"shard": shard, "kinesisStream": p.KinesisStream}).Set(millSeconds)
+	p.behindLatestMillis.With(prometheus.Labels{"shard": shard, "kinesisStream": p.streamName}).Set(millSeconds)
 }
 
 func (p *PrometheusMonitoringService) LeaseGained(shard string) {
-	p.leasesHeld.With(prometheus.Labels{"shard": shard, "kinesisStream": p.KinesisStream, "workerID": p.WorkerID}).Inc()
+	p.leasesHeld.With(prometheus.Labels{"shard": shard, "kinesisStream": p.streamName, "workerID": p.workerID}).Inc()
 }
 
 func (p *PrometheusMonitoringService) LeaseLost(shard string) {
-	p.leasesHeld.With(prometheus.Labels{"shard": shard, "kinesisStream": p.KinesisStream, "workerID": p.WorkerID}).Dec()
+	p.leasesHeld.With(prometheus.Labels{"shard": shard, "kinesisStream": p.streamName, "workerID": p.workerID}).Dec()
 }
 
 func (p *PrometheusMonitoringService) LeaseRenewed(shard string) {
-	p.leaseRenewals.With(prometheus.Labels{"shard": shard, "kinesisStream": p.KinesisStream, "workerID": p.WorkerID}).Inc()
+	p.leaseRenewals.With(prometheus.Labels{"shard": shard, "kinesisStream": p.streamName, "workerID": p.workerID}).Inc()
 }
 
 func (p *PrometheusMonitoringService) RecordGetRecordsTime(shard string, time float64) {
-	p.getRecordsTime.With(prometheus.Labels{"shard": shard, "kinesisStream": p.KinesisStream}).Observe(time)
+	p.getRecordsTime.With(prometheus.Labels{"shard": shard, "kinesisStream": p.streamName}).Observe(time)
 }
 
 func (p *PrometheusMonitoringService) RecordProcessRecordsTime(shard string, time float64) {
-	p.processRecordsTime.With(prometheus.Labels{"shard": shard, "kinesisStream": p.KinesisStream}).Observe(time)
+	p.processRecordsTime.With(prometheus.Labels{"shard": shard, "kinesisStream": p.streamName}).Observe(time)
 }
