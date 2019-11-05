@@ -88,12 +88,6 @@ const (
 	// Backoff time in milliseconds for Amazon Kinesis Client Library tasks (in the event of failures).
 	DEFAULT_TASK_BACKOFF_TIME_MILLIS = 500
 
-	// Buffer metrics for at most this long before publishing to CloudWatch.
-	DEFAULT_METRICS_BUFFER_TIME_MILLIS = 10000
-
-	// Buffer at most this many metrics before publishing to CloudWatch.
-	DEFAULT_METRICS_MAX_QUEUE_SIZE = 10000
-
 	// KCL will validate client provided sequence numbers with a call to Amazon Kinesis before
 	// checkpointing for calls to {@link RecordProcessorCheckpointer#checkpoint(String)} by default.
 	DEFAULT_VALIDATE_SEQUENCE_NUMBER_BEFORE_CHECKPOINTING = true
@@ -174,9 +168,6 @@ type (
 		// DynamoDBCredentials is used to access DynamoDB
 		DynamoDBCredentials *creds.Credentials
 
-		// CloudWatchCredentials is used to access CloudWatch
-		CloudWatchCredentials *creds.Credentials
-
 		// TableName is name of the dynamo db table for managing kinesis stream default to ApplicationName
 		TableName string
 
@@ -224,12 +215,6 @@ type (
 
 		// TaskBackoffTimeMillis Backoff period when tasks encounter an exception
 		TaskBackoffTimeMillis int
-
-		// MetricsBufferTimeMillis Metrics are buffered for at most this long before publishing to CloudWatch
-		MetricsBufferTimeMillis int
-
-		// MetricsMaxQueueSize Max number of metrics to buffer before publishing to CloudWatch
-		MetricsMaxQueueSize int
 
 		// ValidateSequenceNumberBeforeCheckpointing whether KCL should validate client provided sequence numbers
 		ValidateSequenceNumberBeforeCheckpointing bool
