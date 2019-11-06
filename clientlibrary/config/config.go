@@ -41,6 +41,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	creds "github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
 	"github.com/vmware/vmware-go-kcl/logger"
 )
 
@@ -87,12 +88,6 @@ const (
 
 	// Backoff time in milliseconds for Amazon Kinesis Client Library tasks (in the event of failures).
 	DEFAULT_TASK_BACKOFF_TIME_MILLIS = 500
-
-	// Buffer metrics for at most this long before publishing to CloudWatch.
-	DEFAULT_METRICS_BUFFER_TIME_MILLIS = 10000
-
-	// Buffer at most this many metrics before publishing to CloudWatch.
-	DEFAULT_METRICS_MAX_QUEUE_SIZE = 10000
 
 	// KCL will validate client provided sequence numbers with a call to Amazon Kinesis before
 	// checkpointing for calls to {@link RecordProcessorCheckpointer#checkpoint(String)} by default.
@@ -174,9 +169,6 @@ type (
 		// DynamoDBCredentials is used to access DynamoDB
 		DynamoDBCredentials *creds.Credentials
 
-		// CloudWatchCredentials is used to access CloudWatch
-		CloudWatchCredentials *creds.Credentials
-
 		// TableName is name of the dynamo db table for managing kinesis stream default to ApplicationName
 		TableName string
 
@@ -192,7 +184,7 @@ type (
 		// InitialPositionInStreamExtended provides actual AT_TMESTAMP value
 		InitialPositionInStreamExtended InitialPositionInStreamExtended
 
-		// credentials to access Kinesis/Dynamo/CloudWatch: https://docs.aws.amazon.com/sdk-for-go/api/aws/credentials/
+		// credentials to access Kinesis/Dynamo: https://docs.aws.amazon.com/sdk-for-go/api/aws/credentials/
 		// Note: No need to configure here. Use NewEnvCredentials for testing and EC2RoleProvider for production
 
 		// FailoverTimeMillis Lease duration (leases not renewed within this period will be claimed by others)
@@ -219,17 +211,10 @@ type (
 
 		// kinesisClientConfig Client Configuration used by Kinesis client
 		// dynamoDBClientConfig Client Configuration used by DynamoDB client
-		// cloudWatchClientConfig Client Configuration used by CloudWatch client
 		// Note: we will use default client provided by AWS SDK
 
 		// TaskBackoffTimeMillis Backoff period when tasks encounter an exception
 		TaskBackoffTimeMillis int
-
-		// MetricsBufferTimeMillis Metrics are buffered for at most this long before publishing to CloudWatch
-		MetricsBufferTimeMillis int
-
-		// MetricsMaxQueueSize Max number of metrics to buffer before publishing to CloudWatch
-		MetricsMaxQueueSize int
 
 		// ValidateSequenceNumberBeforeCheckpointing whether KCL should validate client provided sequence numbers
 		ValidateSequenceNumberBeforeCheckpointing bool
@@ -260,6 +245,9 @@ type (
 
 		// Logger used to log message.
 		Logger logger.Logger
+
+		// MonitoringService publishes per worker-scoped metrics.
+		MonitoringService metrics.MonitoringService
 	}
 )
 

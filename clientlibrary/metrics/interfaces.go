@@ -27,23 +27,8 @@
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 package metrics
 
-import (
-	"fmt"
-	"github.com/vmware/vmware-go-kcl/logger"
-)
-
-// MonitoringConfiguration allows you to configure how record processing metrics are exposed
-type MonitoringConfiguration struct {
-	MonitoringService string // Type of monitoring to expose. Supported types are "prometheus"
-	Region            string
-	Prometheus        PrometheusMonitoringService
-	CloudWatch        CloudWatchMonitoringService
-	service           MonitoringService
-	Logger            logger.Logger
-}
-
 type MonitoringService interface {
-	Init() error
+	Init(appName, streamName, workerID string) error
 	Start() error
 	IncrRecordsProcessed(string, int)
 	IncrBytesProcessed(string, int64)
@@ -56,53 +41,18 @@ type MonitoringService interface {
 	Shutdown()
 }
 
-func (m *MonitoringConfiguration) Init(nameSpace, streamName string, workerID string) error {
-	if m.MonitoringService == "" {
-		m.service = &noopMonitoringService{}
-		return nil
-	}
+// NoopMonitoringService implements MonitoringService by does nothing.
+type NoopMonitoringService struct{}
 
-	// Config with default logger if logger is not specified.
-	if m.Logger == nil {
-		m.Logger = logger.GetDefaultLogger()
-	}
+func (NoopMonitoringService) Init(appName, streamName, workerID string) error { return nil }
+func (NoopMonitoringService) Start() error                                    { return nil }
+func (NoopMonitoringService) Shutdown()                                       {}
 
-	switch m.MonitoringService {
-	case "prometheus":
-		m.Prometheus.Namespace = nameSpace
-		m.Prometheus.KinesisStream = streamName
-		m.Prometheus.WorkerID = workerID
-		m.Prometheus.Region = m.Region
-		m.Prometheus.Logger = m.Logger
-		m.service = &m.Prometheus
-	case "cloudwatch":
-		m.CloudWatch.Namespace = nameSpace
-		m.CloudWatch.KinesisStream = streamName
-		m.CloudWatch.WorkerID = workerID
-		m.CloudWatch.Region = m.Region
-		m.CloudWatch.Logger = m.Logger
-		m.service = &m.CloudWatch
-	default:
-		return fmt.Errorf("Invalid monitoring service type %s", m.MonitoringService)
-	}
-	return m.service.Init()
-}
-
-func (m *MonitoringConfiguration) GetMonitoringService() MonitoringService {
-	return m.service
-}
-
-type noopMonitoringService struct{}
-
-func (n *noopMonitoringService) Init() error  { return nil }
-func (n *noopMonitoringService) Start() error { return nil }
-func (n *noopMonitoringService) Shutdown()    {}
-
-func (n *noopMonitoringService) IncrRecordsProcessed(shard string, count int)         {}
-func (n *noopMonitoringService) IncrBytesProcessed(shard string, count int64)         {}
-func (n *noopMonitoringService) MillisBehindLatest(shard string, millSeconds float64) {}
-func (n *noopMonitoringService) LeaseGained(shard string)                             {}
-func (n *noopMonitoringService) LeaseLost(shard string)                               {}
-func (n *noopMonitoringService) LeaseRenewed(shard string)                            {}
-func (n *noopMonitoringService) RecordGetRecordsTime(shard string, time float64)      {}
-func (n *noopMonitoringService) RecordProcessRecordsTime(shard string, time float64)  {}
+func (NoopMonitoringService) IncrRecordsProcessed(shard string, count int)         {}
+func (NoopMonitoringService) IncrBytesProcessed(shard string, count int64)         {}
+func (NoopMonitoringService) MillisBehindLatest(shard string, millSeconds float64) {}
+func (NoopMonitoringService) LeaseGained(shard string)                             {}
+func (NoopMonitoringService) LeaseLost(shard string)                               {}
+func (NoopMonitoringService) LeaseRenewed(shard string)                            {}
+func (NoopMonitoringService) RecordGetRecordsTime(shard string, time float64)      {}
+func (NoopMonitoringService) RecordProcessRecordsTime(shard string, time float64)  {}

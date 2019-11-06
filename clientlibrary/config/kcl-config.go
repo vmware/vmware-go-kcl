@@ -37,26 +37,28 @@ import (
 	"log"
 	"time"
 
+	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
+
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
 	"github.com/vmware/vmware-go-kcl/logger"
 )
 
-// NewKinesisClientLibConfig to create a default KinesisClientLibConfiguration based on the required fields.
+// NewKinesisClientLibConfig creates a default KinesisClientLibConfiguration based on the required fields.
 func NewKinesisClientLibConfig(applicationName, streamName, regionName, workerID string) *KinesisClientLibConfiguration {
 	return NewKinesisClientLibConfigWithCredentials(applicationName, streamName, regionName, workerID,
-		nil, nil, nil)
+		nil, nil)
 }
 
-// NewKinesisClientLibConfig to create a default KinesisClientLibConfiguration based on the required fields.
+// NewKinesisClientLibConfigWithCredential creates a default KinesisClientLibConfiguration based on the required fields and unique credentials.
 func NewKinesisClientLibConfigWithCredential(applicationName, streamName, regionName, workerID string,
 	creds *credentials.Credentials) *KinesisClientLibConfiguration {
-	return NewKinesisClientLibConfigWithCredentials(applicationName, streamName, regionName, workerID, creds, creds, creds)
+	return NewKinesisClientLibConfigWithCredentials(applicationName, streamName, regionName, workerID, creds, creds)
 }
 
-// NewKinesisClientLibConfig to create a default KinesisClientLibConfiguration based on the required fields.
+// NewKinesisClientLibConfigWithCredentials creates a default KinesisClientLibConfiguration based on the required fields and specific credentials for each service.
 func NewKinesisClientLibConfigWithCredentials(applicationName, streamName, regionName, workerID string,
-	kiniesisCreds, dynamodbCreds, cloudwatchCreds *credentials.Credentials) *KinesisClientLibConfiguration {
+	kiniesisCreds, dynamodbCreds *credentials.Credentials) *KinesisClientLibConfiguration {
 	checkIsValueNotEmpty("ApplicationName", applicationName)
 	checkIsValueNotEmpty("StreamName", streamName)
 	checkIsValueNotEmpty("RegionName", regionName)
@@ -70,7 +72,6 @@ func NewKinesisClientLibConfigWithCredentials(applicationName, streamName, regio
 		ApplicationName:                                  applicationName,
 		KinesisCredentials:                               kiniesisCreds,
 		DynamoDBCredentials:                              dynamodbCreds,
-		CloudWatchCredentials:                            cloudwatchCreds,
 		TableName:                                        applicationName,
 		StreamName:                                       streamName,
 		RegionName:                                       regionName,
@@ -85,8 +86,6 @@ func NewKinesisClientLibConfigWithCredentials(applicationName, streamName, regio
 		ShardSyncIntervalMillis:                          DEFAULT_SHARD_SYNC_INTERVAL_MILLIS,
 		CleanupTerminatedShardsBeforeExpiry:              DEFAULT_CLEANUP_LEASES_UPON_SHARDS_COMPLETION,
 		TaskBackoffTimeMillis:                            DEFAULT_TASK_BACKOFF_TIME_MILLIS,
-		MetricsBufferTimeMillis:                          DEFAULT_METRICS_BUFFER_TIME_MILLIS,
-		MetricsMaxQueueSize:                              DEFAULT_METRICS_MAX_QUEUE_SIZE,
 		ValidateSequenceNumberBeforeCheckpointing:        DEFAULT_VALIDATE_SEQUENCE_NUMBER_BEFORE_CHECKPOINTING,
 		ShutdownGraceMillis:                              DEFAULT_SHUTDOWN_GRACE_MILLIS,
 		MaxLeasesForWorker:                               DEFAULT_MAX_LEASES_FOR_WORKER,
@@ -191,24 +190,18 @@ func (c *KinesisClientLibConfiguration) WithTaskBackoffTimeMillis(taskBackoffTim
 	return c
 }
 
-// WithMetricsBufferTimeMillis configures Metrics are buffered for at most this long before publishing to CloudWatch
-func (c *KinesisClientLibConfiguration) WithMetricsBufferTimeMillis(metricsBufferTimeMillis int) *KinesisClientLibConfiguration {
-	checkIsValuePositive("MetricsBufferTimeMillis", metricsBufferTimeMillis)
-	c.MetricsBufferTimeMillis = metricsBufferTimeMillis
-	return c
-}
-
-// WithMetricsMaxQueueSize configures Max number of metrics to buffer before publishing to CloudWatch
-func (c *KinesisClientLibConfiguration) WithMetricsMaxQueueSize(metricsMaxQueueSize int) *KinesisClientLibConfiguration {
-	checkIsValuePositive("MetricsMaxQueueSize", metricsMaxQueueSize)
-	c.MetricsMaxQueueSize = metricsMaxQueueSize
-	return c
-}
-
 func (c *KinesisClientLibConfiguration) WithLogger(logger logger.Logger) *KinesisClientLibConfiguration {
 	if logger == nil {
 		log.Panic("Logger cannot be null")
 	}
 	c.Logger = logger
+	return c
+}
+
+// WithMonitoringService sets the monitoring service to use to publish metrics.
+func (c *KinesisClientLibConfiguration) WithMonitoringService(mService metrics.MonitoringService) *KinesisClientLibConfiguration {
+	// Nil case is handled downward (at worker creation) so no need to do it here.
+	// Plus the user might want to be explicit about passing a nil monitoring service here.
+	c.MonitoringService = mService
 	return c
 }

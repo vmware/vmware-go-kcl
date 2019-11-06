@@ -75,8 +75,6 @@ func TestWorker(t *testing.T) {
 		WithMaxLeasesForWorker(1).
 		WithShardSyncIntervalMillis(5000).
 		WithFailoverTimeMillis(300000).
-		WithMetricsBufferTimeMillis(10000).
-		WithMetricsMaxQueueSize(20).
 		WithLogger(log)
 
 	runTest(kclConfig, false, t)
@@ -99,8 +97,6 @@ func TestWorkerWithTimestamp(t *testing.T) {
 		WithMaxLeasesForWorker(1).
 		WithShardSyncIntervalMillis(5000).
 		WithFailoverTimeMillis(300000).
-		WithMetricsBufferTimeMillis(10000).
-		WithMetricsMaxQueueSize(20).
 		WithLogger(log)
 
 	runTest(kclConfig, false, t)
@@ -131,8 +127,6 @@ func TestWorkerWithSigInt(t *testing.T) {
 		WithMaxLeasesForWorker(1).
 		WithShardSyncIntervalMillis(5000).
 		WithFailoverTimeMillis(300000).
-		WithMetricsBufferTimeMillis(10000).
-		WithMetricsMaxQueueSize(20).
 		WithLogger(log)
 
 	runTest(kclConfig, true, t)
@@ -148,9 +142,7 @@ func TestWorkerStatic(t *testing.T) {
 		WithMaxRecords(10).
 		WithMaxLeasesForWorker(1).
 		WithShardSyncIntervalMillis(5000).
-		WithFailoverTimeMillis(300000).
-		WithMetricsBufferTimeMillis(10000).
-		WithMetricsMaxQueueSize(20)
+		WithFailoverTimeMillis(300000)
 
 	runTest(kclConfig, false, t)
 }
@@ -172,9 +164,7 @@ func TestWorkerAssumeRole(t *testing.T) {
 		WithMaxRecords(10).
 		WithMaxLeasesForWorker(1).
 		WithShardSyncIntervalMillis(5000).
-		WithFailoverTimeMillis(300000).
-		WithMetricsBufferTimeMillis(10000).
-		WithMetricsMaxQueueSize(20)
+		WithFailoverTimeMillis(300000)
 
 	runTest(kclConfig, false, t)
 }
@@ -184,9 +174,9 @@ func runTest(kclConfig *cfg.KinesisClientLibConfiguration, triggersig bool, t *t
 	assert.Equal(t, streamName, kclConfig.StreamName)
 
 	// configure cloudwatch as metrics system
-	metricsConfig := getMetricsConfig(kclConfig, metricsSystem)
+	kclConfig.WithMonitoringService(getMetricsConfig(kclConfig, metricsSystem))
 
-	worker := wk.NewWorker(recordProcessorFactory(t), kclConfig, metricsConfig)
+	worker := wk.NewWorker(recordProcessorFactory(t), kclConfig)
 
 	err := worker.Start()
 	assert.Nil(t, err)
@@ -223,7 +213,7 @@ func runTest(kclConfig *cfg.KinesisClientLibConfiguration, triggersig bool, t *t
 	// wait a few seconds before shutdown processing
 	time.Sleep(10 * time.Second)
 
-	if metricsConfig != nil && metricsConfig.MonitoringService == "prometheus" {
+	if metricsSystem == "prometheus" {
 		res, err := http.Get("http://localhost:8080/metrics")
 		if err != nil {
 			t.Fatalf("Error scraping Prometheus endpoint %s", err)
@@ -244,30 +234,17 @@ func runTest(kclConfig *cfg.KinesisClientLibConfiguration, triggersig bool, t *t
 }
 
 // configure different metrics system
-func getMetricsConfig(kclConfig *cfg.KinesisClientLibConfiguration, service string) *metrics.MonitoringConfiguration {
+func getMetricsConfig(kclConfig *cfg.KinesisClientLibConfiguration, service string) metrics.MonitoringService {
+
 	if service == "cloudwatch" {
-		return &metrics.MonitoringConfiguration{
-			MonitoringService: "cloudwatch",
-			Region:            regionName,
-			Logger:            kclConfig.Logger,
-			CloudWatch: metrics.CloudWatchMonitoringService{
-				Credentials: kclConfig.CloudWatchCredentials,
-				// Those value should come from kclConfig
-				MetricsBufferTimeMillis: kclConfig.MetricsBufferTimeMillis,
-				MetricsMaxQueueSize:     kclConfig.MetricsMaxQueueSize,
-			},
-		}
+		return metrics.NewDetailedCloudWatchMonitoringService(kclConfig.RegionName,
+			kclConfig.KinesisCredentials,
+			kclConfig.Logger,
+			metrics.DEFAULT_CLOUDWATCH_METRICS_BUFFER_DURATION)
 	}
 
 	if service == "prometheus" {
-		return &metrics.MonitoringConfiguration{
-			MonitoringService: "prometheus",
-			Region:            regionName,
-			Logger:            kclConfig.Logger,
-			Prometheus: metrics.PrometheusMonitoringService{
-				ListenAddress: ":8080",
-			},
-		}
+		return metrics.NewPrometheusMonitoringService(":8080", regionName, kclConfig.Logger)
 	}
 
 	return nil

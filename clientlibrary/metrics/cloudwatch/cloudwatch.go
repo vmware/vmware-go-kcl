@@ -25,7 +25,7 @@
 // The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-package metrics
+package cloudwatch
 
 import (
 	"sync"
@@ -34,23 +34,25 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudwatch"
+	cwatch "github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
 
 	"github.com/vmware/vmware-go-kcl/logger"
 )
 
-type CloudWatchMonitoringService struct {
-	Namespace     string
-	KinesisStream string
-	WorkerID      string
-	Region        string
-	Credentials   *credentials.Credentials
-	Logger        logger.Logger
+// Buffer metrics for at most this long before publishing to CloudWatch.
+const DEFAULT_CLOUDWATCH_METRICS_BUFFER_DURATION = 10 * time.Second
 
-	// control how often to pusblish to CloudWatch
-	MetricsBufferTimeMillis int
-	MetricsMaxQueueSize     int
+type MonitoringService struct {
+	appName     string
+	streamName  string
+	workerID    string
+	region      string
+	credentials *credentials.Credentials
+	logger      logger.Logger
+
+	// control how often to publish to CloudWatch
+	bufferDuration time.Duration
 
 	stop         *chan struct{}
 	waitGroup    *sync.WaitGroup
@@ -59,6 +61,8 @@ type CloudWatchMonitoringService struct {
 }
 
 type cloudWatchMetrics struct {
+	sync.Mutex
+
 	processedRecords   int64
 	processedBytes     int64
 	behindLatestMillis []float64
@@ -66,18 +70,33 @@ type cloudWatchMetrics struct {
 	leaseRenewals      int64
 	getRecordsTime     []float64
 	processRecordsTime []float64
-	sync.Mutex
 }
 
-func (cw *CloudWatchMonitoringService) Init() error {
-	cfg := &aws.Config{Region: aws.String(cw.Region)}
-	cfg.Credentials = cw.Credentials
+// NewMonitoringService returns a Monitoring service publishing metrics to CloudWatch.
+func NewMonitoringService(region string, creds *credentials.Credentials) *MonitoringService {
+	return NewMonitoringServiceWithOptions(region, creds, logger.GetDefaultLogger(), DEFAULT_CLOUDWATCH_METRICS_BUFFER_DURATION)
+}
+
+// NewMonitoringServiceWithOptions returns a Monitoring service publishing metrics to
+// CloudWatch with the provided credentials, buffering duration and logger.
+func NewMonitoringServiceWithOptions(region string, creds *credentials.Credentials, logger logger.Logger, bufferDur time.Duration) *MonitoringService {
+	return &MonitoringService{
+		region:         region,
+		credentials:    creds,
+		logger:         logger,
+		bufferDuration: bufferDur,
+	}
+}
+
+func (cw *MonitoringService) Init(appName, streamName, workerID string) error {
+	cfg := &aws.Config{Region: aws.String(cw.region)}
+	cfg.Credentials = cw.credentials
 	s, err := session.NewSession(cfg)
 	if err != nil {
-		cw.Logger.Errorf("Error in creating session for cloudwatch. %+v", err)
+		cw.logger.Errorf("Error in creating session for cloudwatch. %+v", err)
 		return err
 	}
-	cw.svc = cloudwatch.New(s)
+	cw.svc = cwatch.New(s)
 	cw.shardMetrics = new(sync.Map)
 
 	stopChan := make(chan struct{})
@@ -88,71 +107,71 @@ func (cw *CloudWatchMonitoringService) Init() error {
 	return nil
 }
 
-func (cw *CloudWatchMonitoringService) Start() error {
+func (cw *MonitoringService) Start() error {
 	cw.waitGroup.Add(1)
 	// entering eventloop for sending metrics to CloudWatch
 	go cw.eventloop()
 	return nil
 }
 
-func (cw *CloudWatchMonitoringService) Shutdown() {
-	cw.Logger.Infof("Shutting down cloudwatch metrics system...")
+func (cw *MonitoringService) Shutdown() {
+	cw.logger.Infof("Shutting down cloudwatch metrics system...")
 	close(*cw.stop)
 	cw.waitGroup.Wait()
-	cw.Logger.Infof("Cloudwatch metrics system has been shutdown.")
+	cw.logger.Infof("Cloudwatch metrics system has been shutdown.")
 }
 
 // Start daemon to flush metrics periodically
-func (cw *CloudWatchMonitoringService) eventloop() {
+func (cw *MonitoringService) eventloop() {
 	defer cw.waitGroup.Done()
 
 	for {
 		if err := cw.flush(); err != nil {
-			cw.Logger.Errorf("Error sending metrics to CloudWatch. %+v", err)
+			cw.logger.Errorf("Error sending metrics to CloudWatch. %+v", err)
 		}
 
 		select {
 		case <-*cw.stop:
-			cw.Logger.Infof("Shutting down monitoring system")
+			cw.logger.Infof("Shutting down monitoring system")
 			if err := cw.flush(); err != nil {
-				cw.Logger.Errorf("Error sending metrics to CloudWatch. %+v", err)
+				cw.logger.Errorf("Error sending metrics to CloudWatch. %+v", err)
 			}
 			return
-		case <-time.After(time.Duration(cw.MetricsBufferTimeMillis) * time.Millisecond):
+		case <-time.After(cw.bufferDuration):
 		}
 	}
 }
 
-func (cw *CloudWatchMonitoringService) flushShard(shard string, metric *cloudWatchMetrics) bool {
+func (cw *MonitoringService) flushShard(shard string, metric *cloudWatchMetrics) bool {
 	metric.Lock()
-	defaultDimensions := []*cloudwatch.Dimension{
+	defaultDimensions := []*cwatch.Dimension{
 		{
 			Name:  aws.String("Shard"),
 			Value: &shard,
 		},
 		{
 			Name:  aws.String("KinesisStreamName"),
-			Value: &cw.KinesisStream,
+			Value: &cw.streamName,
 		},
 	}
 
-	leaseDimensions := []*cloudwatch.Dimension{
+	leaseDimensions := []*cwatch.Dimension{
 		{
 			Name:  aws.String("Shard"),
 			Value: &shard,
 		},
 		{
 			Name:  aws.String("KinesisStreamName"),
-			Value: &cw.KinesisStream,
+			Value: &cw.streamName,
 		},
 		{
 			Name:  aws.String("WorkerID"),
-			Value: &cw.WorkerID,
+			Value: &cw.workerID,
 		},
 	}
 	metricTimestamp := time.Now()
 
-	data := []*cloudwatch.MetricDatum{
+	data := []*cwatch.MetricDatum{
 		{
 			Dimensions: defaultDimensions,
 			MetricName: aws.String("RecordsProcessed"),
@@ -184,12 +203,12 @@ func (cw *CloudWatchMonitoringService) flushShard(shard string, metric *cloudWat
 	}
 
 	if len(metric.behindLatestMillis) > 0 {
-		data = append(data, &cloudwatch.MetricDatum{
+		data = append(data, &cwatch.MetricDatum{
 			Dimensions: defaultDimensions,
 			MetricName: aws.String("MillisBehindLatest"),
 			Unit:       aws.String("Milliseconds"),
 			Timestamp:  &metricTimestamp,
-			StatisticValues: &cloudwatch.StatisticSet{
+			StatisticValues: &cwatch.StatisticSet{
 				SampleCount: aws.Float64(float64(len(metric.behindLatestMillis))),
 				Sum:         sumFloat64(metric.behindLatestMillis),
 				Maximum:     maxFloat64(metric.behindLatestMillis),
@@ -198,12 +217,12 @@ func (cw *CloudWatchMonitoringService) flushShard(shard string, metric *cloudWat
 	}
 
 	if len(metric.getRecordsTime) > 0 {
-		data = append(data, &cloudwatch.MetricDatum{
+		data = append(data, &cwatch.MetricDatum{
 			Dimensions: defaultDimensions,
 			MetricName: aws.String("KinesisDataFetcher.getRecords.Time"),
 			Unit:       aws.String("Milliseconds"),
 			Timestamp:  &metricTimestamp,
-			StatisticValues: &cloudwatch.StatisticSet{
+			StatisticValues: &cwatch.StatisticSet{
 				SampleCount: aws.Float64(float64(len(metric.getRecordsTime))),
 				Sum:         sumFloat64(metric.getRecordsTime),
 				Maximum:     maxFloat64(metric.getRecordsTime),
@@ -212,12 +231,12 @@ func (cw *CloudWatchMonitoringService) flushShard(shard string, metric *cloudWat
 	}
 
 	if len(metric.processRecordsTime) > 0 {
-		data = append(data, &cloudwatch.MetricDatum{
+		data = append(data, &cwatch.MetricDatum{
 			Dimensions: defaultDimensions,
 			MetricName: aws.String("RecordProcessor.processRecords.Time"),
 			Unit:       aws.String("Milliseconds"),
 			Timestamp:  &metricTimestamp,
-			StatisticValues: &cloudwatch.StatisticSet{
+			StatisticValues: &cwatch.StatisticSet{
 				SampleCount: aws.Float64(float64(len(metric.processRecordsTime))),
 				Sum:         sumFloat64(metric.processRecordsTime),
 				Maximum:     maxFloat64(metric.processRecordsTime),
@@ -226,8 +245,8 @@ func (cw *CloudWatchMonitoringService) flushShard(shard string, metric *cloudWat
 	}
 
 	// Publish metrics data to cloud watch
-	_, err := cw.svc.PutMetricData(&cloudwatch.PutMetricDataInput{
-		Namespace:  aws.String(cw.Namespace),
+	_, err := cw.svc.PutMetricData(&cwatch.PutMetricDataInput{
+		Namespace:  aws.String(cw.appName),
 		MetricData: data,
 	})
 
@@ -239,15 +258,15 @@ func (cw *CloudWatchMonitoringService) flushShard(shard string, metric *cloudWat
 		metric.getRecordsTime = []float64{}
 		metric.processRecordsTime = []float64{}
 	} else {
-		cw.Logger.Errorf("Error in publishing cloudwatch metrics. Error: %+v", err)
+		cw.logger.Errorf("Error in publishing cloudwatch metrics. Error: %+v", err)
 	}
 
 	metric.Unlock()
 	return true
 }
 
-func (cw *CloudWatchMonitoringService) flush() error {
-	cw.Logger.Debugf("Flushing metrics data. Stream: %s, Worker: %s", cw.KinesisStream, cw.WorkerID)
+func (cw *MonitoringService) flush() error {
+	cw.logger.Debugf("Flushing metrics data. Stream: %s, Worker: %s", cw.streamName, cw.workerID)
 	// publish per shard metrics
 	cw.shardMetrics.Range(func(k, v interface{}) bool {
 		shard, metric := k.(string), v.(*cloudWatchMetrics)
@@ -257,62 +276,62 @@ func (cw *CloudWatchMonitoringService) flush() error {
 	return nil
 }
 
-func (cw *CloudWatchMonitoringService) IncrRecordsProcessed(shard string, count int) {
+func (cw *MonitoringService) IncrRecordsProcessed(shard string, count int) {
 	m := cw.getOrCreatePerShardMetrics(shard)
 	m.Lock()
 	defer m.Unlock()
 	m.processedRecords += int64(count)
 }
 
-func (cw *CloudWatchMonitoringService) IncrBytesProcessed(shard string, count int64) {
+func (cw *MonitoringService) IncrBytesProcessed(shard string, count int64) {
 	m := cw.getOrCreatePerShardMetrics(shard)
 	m.Lock()
 	defer m.Unlock()
 	m.processedBytes += count
 }
 
-func (cw *CloudWatchMonitoringService) MillisBehindLatest(shard string, millSeconds float64) {
+func (cw *MonitoringService) MillisBehindLatest(shard string, millSeconds float64) {
 	m := cw.getOrCreatePerShardMetrics(shard)
 	m.Lock()
 	defer m.Unlock()
 	m.behindLatestMillis = append(m.behindLatestMillis, millSeconds)
 }
 
-func (cw *CloudWatchMonitoringService) LeaseGained(shard string) {
+func (cw *MonitoringService) LeaseGained(shard string) {
 	m := cw.getOrCreatePerShardMetrics(shard)
 	m.Lock()
 	defer m.Unlock()
 	m.leasesHeld++
 }
 
-func (cw *CloudWatchMonitoringService) LeaseLost(shard string) {
+func (cw *MonitoringService) LeaseLost(shard string) {
 	m := cw.getOrCreatePerShardMetrics(shard)
 	m.Lock()
 	defer m.Unlock()
 	m.leasesHeld--
 }
 
-func (cw *CloudWatchMonitoringService) LeaseRenewed(shard string) {
+func (cw *MonitoringService) LeaseRenewed(shard string) {
 	m := cw.getOrCreatePerShardMetrics(shard)
 	m.Lock()
 	defer m.Unlock()
 	m.leaseRenewals++
 }
 
-func (cw *CloudWatchMonitoringService) RecordGetRecordsTime(shard string, time float64) {
+func (cw *MonitoringService) RecordGetRecordsTime(shard string, time float64) {
 	m := cw.getOrCreatePerShardMetrics(shard)
 	m.Lock()
 	defer m.Unlock()
 	m.getRecordsTime = append(m.getRecordsTime, time)
 }
-func (cw *CloudWatchMonitoringService) RecordProcessRecordsTime(shard string, time float64) {
+func (cw *MonitoringService) RecordProcessRecordsTime(shard string, time float64) {
 	m := cw.getOrCreatePerShardMetrics(shard)
 	m.Lock()
 	defer m.Unlock()
 	m.processRecordsTime = append(m.processRecordsTime, time)
 }
 
-func (cw *CloudWatchMonitoringService) getOrCreatePerShardMetrics(shard string) *cloudWatchMetrics {
+func (cw *MonitoringService) getOrCreatePerShardMetrics(shard string) *cloudWatchMetrics {
 	var i interface{}
 	var ok bool
 	if i, ok = cw.shardMetrics.Load(shard); !ok {
