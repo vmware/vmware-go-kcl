@@ -69,8 +69,8 @@ type Worker struct {
 
 // NewWorker constructs a Worker instance for processing Kinesis stream data.
 func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisClientLibConfiguration) *Worker {
-	var mService metrics.MonitoringService
-	if kclConfig.MonitoringService == nil {
+	mService := kclConfig.MonitoringService
+	if mService == nil {
 		// Replaces nil with noop monitor service (not emitting any metrics).
 		mService = metrics.NoopMonitoringService{}
 	}
