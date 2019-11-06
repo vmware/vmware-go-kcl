@@ -184,7 +184,7 @@ type (
 		// InitialPositionInStreamExtended provides actual AT_TMESTAMP value
 		InitialPositionInStreamExtended InitialPositionInStreamExtended
 
-		// credentials to access Kinesis/Dynamo/CloudWatch: https://docs.aws.amazon.com/sdk-for-go/api/aws/credentials/
+		// credentials to access Kinesis/Dynamo: https://docs.aws.amazon.com/sdk-for-go/api/aws/credentials/
 		// Note: No need to configure here. Use NewEnvCredentials for testing and EC2RoleProvider for production
 
 		// FailoverTimeMillis Lease duration (leases not renewed within this period will be claimed by others)
@@ -211,7 +211,6 @@ type (
 
 		// kinesisClientConfig Client Configuration used by Kinesis client
 		// dynamoDBClientConfig Client Configuration used by DynamoDB client
-		// cloudWatchClientConfig Client Configuration used by CloudWatch client
 		// Note: we will use default client provided by AWS SDK
 
 		// TaskBackoffTimeMillis Backoff period when tasks encounter an exception
