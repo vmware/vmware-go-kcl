@@ -67,9 +67,8 @@ func TestGetLeaseNotAquired(t *testing.T) {
 		WithMaxRecords(10).
 		WithMaxLeasesForWorker(1).
 		WithShardSyncIntervalMillis(5000).
-		WithFailoverTimeMillis(300000).
-		WithMetricsBufferTimeMillis(10000).
-		WithMetricsMaxQueueSize(20)
+		WithFailoverTimeMillis(300000)
+
 	checkpoint := NewDynamoCheckpoint(kclConfig).WithDynamoDB(svc)
 	checkpoint.Init()
 	err := checkpoint.GetLease(&par.ShardStatus{
@@ -98,9 +97,8 @@ func TestGetLeaseAquired(t *testing.T) {
 		WithMaxRecords(10).
 		WithMaxLeasesForWorker(1).
 		WithShardSyncIntervalMillis(5000).
-		WithFailoverTimeMillis(300000).
-		WithMetricsBufferTimeMillis(10000).
-		WithMetricsMaxQueueSize(20)
+		WithFailoverTimeMillis(300000)
+
 	checkpoint := NewDynamoCheckpoint(kclConfig).WithDynamoDB(svc)
 	checkpoint.Init()
 	marshalledCheckpoint := map[string]*dynamodb.AttributeValue{

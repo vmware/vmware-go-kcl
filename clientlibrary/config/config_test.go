@@ -32,12 +32,10 @@ func TestConfig(t *testing.T) {
 		WithInitialPositionInStream(TRIM_HORIZON).
 		WithIdleTimeBetweenReadsInMillis(20).
 		WithCallProcessRecordsEvenForEmptyRecordList(true).
-		WithTaskBackoffTimeMillis(10).
-		WithMetricsBufferTimeMillis(500).
-		WithMetricsMaxQueueSize(200)
+		WithTaskBackoffTimeMillis(10)
 
 	assert.Equal(t, "appName", kclConfig.ApplicationName)
-	assert.Equal(t, 500, kclConfig.FailoverTimeMillis)
+	assert.Equal(t, 500, kclConfig.TaskBackoffTimeMillis)
 
 	contextLogger := kclConfig.Logger.WithFields(logger.Fields{"key1": "value1"})
 	contextLogger.Debugf("Starting with default logger")

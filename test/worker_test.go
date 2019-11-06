@@ -97,8 +97,6 @@ func TestWorkerWithTimestamp(t *testing.T) {
 		WithMaxLeasesForWorker(1).
 		WithShardSyncIntervalMillis(5000).
 		WithFailoverTimeMillis(300000).
-		WithMetricsBufferTimeMillis(10000).
-		WithMetricsMaxQueueSize(20).
 		WithLogger(log)
 
 	runTest(kclConfig, false, t)
@@ -176,9 +174,9 @@ func runTest(kclConfig *cfg.KinesisClientLibConfiguration, triggersig bool, t *t
 	assert.Equal(t, streamName, kclConfig.StreamName)
 
 	// configure cloudwatch as metrics system
-	mService := getMetricsConfig(kclConfig, metricsSystem)
+	kclConfig.WithMonitoringService(getMetricsConfig(kclConfig, metricsSystem))
 
-	worker := wk.NewWorker(recordProcessorFactory(t), kclConfig, mService)
+	worker := wk.NewWorker(recordProcessorFactory(t), kclConfig)
 
 	err := worker.Start()
 	assert.Nil(t, err)

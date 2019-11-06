@@ -52,13 +52,13 @@ func TestWorkerInjectCheckpointer(t *testing.T) {
 	assert.Equal(t, streamName, kclConfig.StreamName)
 
 	// configure cloudwatch as metrics system
-	mService := getMetricsConfig(kclConfig, metricsSystem)
+	kclConfig.WithMonitoringService(getMetricsConfig(kclConfig, metricsSystem))
 
 	// custom checkpointer or a mock checkpointer.
 	checkpointer := chk.NewDynamoCheckpoint(kclConfig)
 
 	// Inject a custom checkpointer into the worker.
-	worker := wk.NewWorker(recordProcessorFactory(t), kclConfig, mService).
+	worker := wk.NewWorker(recordProcessorFactory(t), kclConfig).
 		WithCheckpointer(checkpointer)
 
 	err := worker.Start()
@@ -107,7 +107,7 @@ func TestWorkerInjectKinesis(t *testing.T) {
 	assert.Equal(t, streamName, kclConfig.StreamName)
 
 	// configure cloudwatch as metrics system
-	mService := getMetricsConfig(kclConfig, metricsSystem)
+	kclConfig.WithMonitoringService(getMetricsConfig(kclConfig, metricsSystem))
 
 	// create custom Kinesis
 	s, err := session.NewSession(&aws.Config{
@@ -117,7 +117,7 @@ func TestWorkerInjectKinesis(t *testing.T) {
 	kc := kinesis.New(s)
 
 	// Inject a custom checkpointer into the worker.
-	worker := wk.NewWorker(recordProcessorFactory(t), kclConfig, mService).
+	worker := wk.NewWorker(recordProcessorFactory(t), kclConfig).
 		WithKinesis(kc)
 
 	err = worker.Start()
@@ -152,7 +152,7 @@ func TestWorkerInjectKinesisAndCheckpointer(t *testing.T) {
 	assert.Equal(t, streamName, kclConfig.StreamName)
 
 	// configure cloudwatch as metrics system
-	mService := getMetricsConfig(kclConfig, metricsSystem)
+	kclConfig.WithMonitoringService(getMetricsConfig(kclConfig, metricsSystem))
 
 	// create custom Kinesis
 	s, err := session.NewSession(&aws.Config{
@@ -165,7 +165,7 @@ func TestWorkerInjectKinesisAndCheckpointer(t *testing.T) {
 	checkpointer := chk.NewDynamoCheckpoint(kclConfig)
 
 	// Inject both custom checkpointer and kinesis into the worker.
-	worker := wk.NewWorker(recordProcessorFactory(t), kclConfig, mService).
+	worker := wk.NewWorker(recordProcessorFactory(t), kclConfig).
 		WithKinesis(kc).
 		WithCheckpointer(checkpointer)
 
