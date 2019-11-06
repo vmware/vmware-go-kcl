@@ -37,6 +37,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
+
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
 	"github.com/vmware/vmware-go-kcl/logger"
@@ -193,5 +195,13 @@ func (c *KinesisClientLibConfiguration) WithLogger(logger logger.Logger) *Kinesi
 		log.Panic("Logger cannot be null")
 	}
 	c.Logger = logger
+	return c
+}
+
+// WithMonitoringService sets the monitoring service to use to publish metrics.
+func (c *KinesisClientLibConfiguration) WithMonitoringService(mService metrics.MonitoringService) *KinesisClientLibConfiguration {
+	// Nil case is handled downward (at worker creation) so no need to do it here.
+	// Plus the user might want to be explicit about passing a nil monitoring service here.
+	c.MonitoringService = mService
 	return c
 }

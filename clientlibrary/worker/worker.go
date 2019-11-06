@@ -58,22 +58,20 @@ type Worker struct {
 	kclConfig        *config.KinesisClientLibConfiguration
 	kc               kinesisiface.KinesisAPI
 	checkpointer     chk.Checkpointer
+	mService         metrics.MonitoringService
 
 	stop      *chan struct{}
 	waitGroup *sync.WaitGroup
 	done      bool
 
 	shardStatus map[string]*par.ShardStatus
-
-	mService metrics.MonitoringService
 }
 
 // NewWorker constructs a Worker instance for processing Kinesis stream data.
-func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisClientLibConfiguration, mService metrics.MonitoringService) *Worker {
-	if mService == nil {
-		// nil means noop monitor service. i.e. not emitting any metrics.
-		// we accept that, though the correct way to do it would be for the user
-		// to call WithoutMonitoringService on the kcl configuration.
+func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisClientLibConfiguration) *Worker {
+	var mService metrics.MonitoringService
+	if kclConfig.MonitoringService == nil {
+		// Replaces nil with noop monitor service (not emitting any metrics).
 		mService = metrics.NoopMonitoringService{}
 	}
 
