@@ -35,7 +35,8 @@ func TestConfig(t *testing.T) {
 		WithTaskBackoffTimeMillis(10)
 
 	assert.Equal(t, "appName", kclConfig.ApplicationName)
-	assert.Equal(t, 500, kclConfig.TaskBackoffTimeMillis)
+	assert.Equal(t, 500, kclConfig.FailoverTimeMillis)
+	assert.Equal(t, 10, kclConfig.TaskBackoffTimeMillis)
 
 	contextLogger := kclConfig.Logger.WithFields(logger.Fields{"key1": "value1"})
 	contextLogger.Debugf("Starting with default logger")

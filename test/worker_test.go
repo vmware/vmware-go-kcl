@@ -35,6 +35,8 @@ import (
 	cfg "github.com/vmware/vmware-go-kcl/clientlibrary/config"
 	kc "github.com/vmware/vmware-go-kcl/clientlibrary/interfaces"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
+	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics/cloudwatch"
+	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics/prometheus"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
 	wk "github.com/vmware/vmware-go-kcl/clientlibrary/worker"
 	"github.com/vmware/vmware-go-kcl/logger"
@@ -237,14 +239,14 @@ func runTest(kclConfig *cfg.KinesisClientLibConfiguration, triggersig bool, t *t
 func getMetricsConfig(kclConfig *cfg.KinesisClientLibConfiguration, service string) metrics.MonitoringService {
 
 	if service == "cloudwatch" {
-		return metrics.NewDetailedCloudWatchMonitoringService(kclConfig.RegionName,
+		return cloudwatch.NewMonitoringServiceWithOptions(kclConfig.RegionName,
 			kclConfig.KinesisCredentials,
 			kclConfig.Logger,
-			metrics.DEFAULT_CLOUDWATCH_METRICS_BUFFER_DURATION)
+			cloudwatch.DEFAULT_CLOUDWATCH_METRICS_BUFFER_DURATION)
 	}
 
 	if service == "prometheus" {
-		return metrics.NewPrometheusMonitoringService(":8080", regionName, kclConfig.Logger)
+		return prometheus.NewMonitoringService(":8080", regionName, kclConfig.Logger)
 	}
 
 	return nil
