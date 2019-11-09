@@ -169,7 +169,6 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 	retriedErrors := 0
 
 	for {
-		getRecordsStartTime := time.Now()
 		if time.Now().UTC().After(shard.LeaseTimeout.Add(-5 * time.Second)) {
 			log.Debugf("Refreshing lease on shard: %s for worker: %s", shard.ID, sc.consumerID)
 			err = sc.checkpointer.GetLease(shard, sc.consumerID)
@@ -184,6 +183,8 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 				return err
 			}
 		}
+
+		getRecordsStartTime := time.Now()
 
 		log.Debugf("Trying to read %d record from iterator: %v", sc.kclConfig.MaxRecords, aws.StringValue(shardIterator))
 		getRecordsArgs := &kinesis.GetRecordsInput{
@@ -206,6 +207,10 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 			log.Errorf("Error getting records from Kinesis that cannot be retried: %+v Request: %s", err, getRecordsArgs)
 			return err
 		}
+
+		// Convert from nanoseconds to milliseconds
+		getRecordsTime := time.Since(getRecordsStartTime) / 1000000
+		sc.mService.RecordGetRecordsTime(shard.ID, float64(getRecordsTime))
 
 		// reset the retry count after success
 		retriedErrors = 0
@@ -239,10 +244,6 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 		sc.mService.IncrRecordsProcessed(shard.ID, recordLength)
 		sc.mService.IncrBytesProcessed(shard.ID, recordBytes)
 		sc.mService.MillisBehindLatest(shard.ID, float64(*getResp.MillisBehindLatest))
-
-		// Convert from nanoseconds to milliseconds
-		getRecordsTime := time.Since(getRecordsStartTime) / 1000000
-		sc.mService.RecordGetRecordsTime(shard.ID, float64(getRecordsTime))
 
 		// Idle between each read, the user is responsible for checkpoint the progress
 		// This value is only used when no records are returned; if records are returned, it should immediately
