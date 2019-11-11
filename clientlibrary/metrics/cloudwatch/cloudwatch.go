@@ -89,6 +89,10 @@ func NewMonitoringServiceWithOptions(region string, creds *credentials.Credentia
 }
 
 func (cw *MonitoringService) Init(appName, streamName, workerID string) error {
+	cw.appName = appName
+	cw.streamName = streamName
+	cw.workerID = workerID
+
 	cfg := &aws.Config{Region: aws.String(cw.region)}
 	cfg.Credentials = cw.credentials
 	s, err := session.NewSession(cfg)
