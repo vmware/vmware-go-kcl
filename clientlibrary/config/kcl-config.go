@@ -79,6 +79,7 @@ func NewKinesisClientLibConfigWithCredentials(applicationName, streamName, regio
 		InitialPositionInStream:                          DEFAULT_INITIAL_POSITION_IN_STREAM,
 		InitialPositionInStreamExtended:                  *newInitialPosition(DEFAULT_INITIAL_POSITION_IN_STREAM),
 		FailoverTimeMillis:                               DEFAULT_FAILOVER_TIME_MILLIS,
+		LeaseRefreshPeriodMillis:                         DEFAULT_LEASE_REFRESH_PERIOD_MILLIS,
 		MaxRecords:                                       DEFAULT_MAX_RECORDS,
 		IdleTimeBetweenReadsInMillis:                     DEFAULT_IDLETIME_BETWEEN_READS_MILLIS,
 		CallProcessRecordsEvenForEmptyRecordList:         DEFAULT_DONT_CALL_PROCESS_RECORDS_FOR_EMPTY_RECORD_LIST,
@@ -130,6 +131,12 @@ func (c *KinesisClientLibConfiguration) WithTimestampAtInitialPositionInStream(t
 func (c *KinesisClientLibConfiguration) WithFailoverTimeMillis(failoverTimeMillis int) *KinesisClientLibConfiguration {
 	checkIsValuePositive("FailoverTimeMillis", failoverTimeMillis)
 	c.FailoverTimeMillis = failoverTimeMillis
+	return c
+}
+
+func (c *KinesisClientLibConfiguration) WithLeaseRefreshPeriodMillis(leaseRefreshPeriodMillis int) *KinesisClientLibConfiguration {
+	checkIsValuePositive("LeaseRefreshPeriodMillis", leaseRefreshPeriodMillis)
+	c.LeaseRefreshPeriodMillis = leaseRefreshPeriodMillis
 	return c
 }
 

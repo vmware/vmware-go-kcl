@@ -63,6 +63,9 @@ const (
 	// the number of DynamoDB IOPS required for tracking leases.
 	DEFAULT_FAILOVER_TIME_MILLIS = 10000
 
+	// Period before the end of lease during which a lease is refreshed by the owner.
+	DEFAULT_LEASE_REFRESH_PERIOD_MILLIS = 5000
+
 	// Max records to fetch from Kinesis in a single GetRecords call.
 	DEFAULT_MAX_RECORDS = 10000
 
@@ -190,7 +193,10 @@ type (
 		// FailoverTimeMillis Lease duration (leases not renewed within this period will be claimed by others)
 		FailoverTimeMillis int
 
-		/// MaxRecords Max records to read per Kinesis getRecords() call
+		// LeaseRefreshPeriodMillis is the period before the end of lease during which a lease is refreshed by the owner.
+		LeaseRefreshPeriodMillis int
+
+		// MaxRecords Max records to read per Kinesis getRecords() call
 		MaxRecords int
 
 		// IdleTimeBetweenReadsInMillis Idle time between calls to fetch data from Kinesis

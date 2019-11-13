@@ -169,7 +169,7 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 	retriedErrors := 0
 
 	for {
-		if time.Now().UTC().After(shard.LeaseTimeout.Add(-5 * time.Second)) {
+		if time.Now().UTC().After(shard.LeaseTimeout.Add(-time.Duration(sc.kclConfig.LeaseRefreshPeriodMillis) * time.Millisecond)) {
 			log.Debugf("Refreshing lease on shard: %s for worker: %s", shard.ID, sc.consumerID)
 			err = sc.checkpointer.GetLease(shard, sc.consumerID)
 			if err != nil {
@@ -266,7 +266,7 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 			shutdownInput := &kcl.ShutdownInput{ShutdownReason: kcl.REQUESTED, Checkpointer: recordCheckpointer}
 			sc.recordProcessor.Shutdown(shutdownInput)
 			return nil
-		case <-time.After(1 * time.Nanosecond):
+		default:
 		}
 	}
 }
