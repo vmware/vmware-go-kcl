@@ -135,7 +135,7 @@ func (checkpointer *DynamoCheckpoint) GetLease(shard *par.ShardStatus, newAssign
 			return err
 		}
 
-		if !time.Now().UTC().After(currentLeaseTimeout) && assignedTo != newAssignTo {
+		if time.Now().UTC().Before(currentLeaseTimeout) && assignedTo != newAssignTo {
 			return errors.New(ErrLeaseNotAquired)
 		}
 

@@ -266,7 +266,7 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 			shutdownInput := &kcl.ShutdownInput{ShutdownReason: kcl.REQUESTED, Checkpointer: recordCheckpointer}
 			sc.recordProcessor.Shutdown(shutdownInput)
 			return nil
-		case <-time.After(1 * time.Nanosecond):
+		default:
 		}
 	}
 }
