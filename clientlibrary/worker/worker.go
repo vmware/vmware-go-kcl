@@ -115,8 +115,12 @@ func (w *Worker) Start() error {
 	}
 
 	log.Infof("Starting worker event loop.")
-	// entering event loop
-	go w.eventLoop()
+	w.waitGroup.Add(1)
+	go func() {
+		defer w.waitGroup.Done()
+		// entering event loop
+		w.eventLoop()
+	}()
 	return nil
 }
 
