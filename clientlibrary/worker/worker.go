@@ -242,7 +242,10 @@ func (w *Worker) eventLoop() {
 		err := w.syncShard()
 		if err != nil {
 			log.Errorf("Error getting Kinesis shards: %+v", err)
-			time.Sleep(time.Duration(w.kclConfig.ShardSyncIntervalMillis) * time.Millisecond)
+
+			// Add [-50%, +50%] random jitter to ShardSyncIntervalMillis in case of error.
+			shardSyncSleep := w.kclConfig.ShardSyncIntervalMillis/2 + w.rng.Intn(int(w.kclConfig.ShardSyncIntervalMillis))
+			time.Sleep(time.Duration(shardSyncSleep) * time.Millisecond)
 			continue
 		}
 
