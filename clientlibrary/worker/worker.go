@@ -309,7 +309,13 @@ func (w *Worker) eventLoop() {
 		case <-*w.stop:
 			log.Infof("Shutting down...")
 			return
-		case <-time.After(time.Duration(w.kclConfig.ShardSyncIntervalMillis) * time.Millisecond):
+		default:
+			// Add [-50%, +50%] random jitter to ShardSyncIntervalMillis. When multiple workers
+			// starts at the same time, this decreases the probability of them calling
+			// kinesis.DescribeStream at the same time, and hit the hard-limit on aws API calls.
+			// On average the period remains the same so that doesn't affect behavior.
+			shardSyncSleep := w.kclConfig.ShardSyncIntervalMillis/2 + w.rng.Intn(int(w.kclConfig.ShardSyncIntervalMillis))
+			time.Sleep(time.Duration(shardSyncSleep) * time.Millisecond)
 		}
 	}
 }
