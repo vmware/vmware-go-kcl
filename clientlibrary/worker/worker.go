@@ -29,6 +29,7 @@ package worker
 
 import (
 	"errors"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -64,6 +65,8 @@ type Worker struct {
 	waitGroup *sync.WaitGroup
 	done      bool
 
+	rng *rand.Rand
+
 	shardStatus map[string]*par.ShardStatus
 }
 
@@ -75,6 +78,9 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 		mService = metrics.NoopMonitoringService{}
 	}
 
+	// Create a pseudo-random number generator and seed it.
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
 	return &Worker{
 		streamName:       kclConfig.StreamName,
 		regionName:       kclConfig.RegionName,
@@ -83,6 +89,7 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 		kclConfig:        kclConfig,
 		mService:         mService,
 		done:             false,
+		rng:              rng,
 	}
 }
 
