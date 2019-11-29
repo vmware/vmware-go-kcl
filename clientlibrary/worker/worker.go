@@ -29,6 +29,7 @@ package worker
 
 import (
 	"errors"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -64,6 +65,8 @@ type Worker struct {
 	waitGroup *sync.WaitGroup
 	done      bool
 
+	rng *rand.Rand
+
 	shardStatus map[string]*par.ShardStatus
 }
 
@@ -75,6 +78,9 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 		mService = metrics.NoopMonitoringService{}
 	}
 
+	// Create a pseudo-random number generator and seed it.
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
 	return &Worker{
 		streamName:       kclConfig.StreamName,
 		regionName:       kclConfig.RegionName,
@@ -83,6 +89,7 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 		kclConfig:        kclConfig,
 		mService:         mService,
 		done:             false,
+		rng:              rng,
 	}
 }
 
@@ -235,7 +242,10 @@ func (w *Worker) eventLoop() {
 		err := w.syncShard()
 		if err != nil {
 			log.Errorf("Error getting Kinesis shards: %+v", err)
-			time.Sleep(time.Duration(w.kclConfig.ShardSyncIntervalMillis) * time.Millisecond)
+
+			// Add [-50%, +50%] random jitter to ShardSyncIntervalMillis in case of error.
+			shardSyncSleep := w.kclConfig.ShardSyncIntervalMillis/2 + w.rng.Intn(int(w.kclConfig.ShardSyncIntervalMillis))
+			time.Sleep(time.Duration(shardSyncSleep) * time.Millisecond)
 			continue
 		}
 
@@ -302,7 +312,13 @@ func (w *Worker) eventLoop() {
 		case <-*w.stop:
 			log.Infof("Shutting down...")
 			return
-		case <-time.After(time.Duration(w.kclConfig.ShardSyncIntervalMillis) * time.Millisecond):
+		default:
+			// Add [-50%, +50%] random jitter to ShardSyncIntervalMillis. When multiple workers
+			// starts at the same time, this decreases the probability of them calling
+			// kinesis.DescribeStream at the same time, and hit the hard-limit on aws API calls.
+			// On average the period remains the same so that doesn't affect behavior.
+			shardSyncSleep := w.kclConfig.ShardSyncIntervalMillis/2 + w.rng.Intn(int(w.kclConfig.ShardSyncIntervalMillis))
+			time.Sleep(time.Duration(shardSyncSleep) * time.Millisecond)
 		}
 	}
 }
