@@ -315,9 +315,8 @@ func (w *Worker) eventLoop() {
 		case <-*w.stop:
 			log.Infof("Shutting down...")
 			return
-		default:
-			log.Debugf("Trying to sync shards in %d ms...", shardSyncSleep)
-			time.Sleep(time.Duration(shardSyncSleep) * time.Millisecond)
+		case <-time.After(time.Duration(shardSyncSleep) * time.Millisecond):
+			log.Debugf("Waited %d ms to sync shards...", shardSyncSleep)
 		}
 	}
 }
