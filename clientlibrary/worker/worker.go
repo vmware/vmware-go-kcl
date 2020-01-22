@@ -238,6 +238,7 @@ func (w *Worker) newShardConsumer(shard *par.ShardStatus) *ShardConsumer {
 func (w *Worker) eventLoop() {
 	log := w.kclConfig.Logger
 
+	var foundShards int
 	for {
 		// Add [-50%, +50%] random jitter to ShardSyncIntervalMillis. When multiple workers
 		// starts at the same time, this decreases the probability of them calling
@@ -252,7 +253,10 @@ func (w *Worker) eventLoop() {
 			continue
 		}
 
-		log.Infof("Found %d shards", len(w.shardStatus))
+		if foundShards == 0 || foundShards != len(w.shardStatus) {
+			foundShards = len(w.shardStatus)
+			log.Infof("Found %d shards", foundShards)
+		}
 
 		// Count the number of leases hold by this worker excluding the processed shard
 		counter := 0
