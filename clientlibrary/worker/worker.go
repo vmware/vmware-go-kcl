@@ -136,7 +136,7 @@ func (w *Worker) Shutdown() {
 	log := w.kclConfig.Logger
 	log.Infof("Worker shutdown in requested.")
 
-	if w.done {
+	if w.done || w.stop == nil {
 		return
 	}
 
