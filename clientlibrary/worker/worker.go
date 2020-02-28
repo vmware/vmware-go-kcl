@@ -326,15 +326,15 @@ func (w *Worker) eventLoop() {
 
 // List all shards and store them into shardStatus table
 // If shard has been removed, need to exclude it from cached shard status.
-func (w *Worker) getShardIDs(nextToken *string, shardInfo map[string]bool) error {
+func (w *Worker) getShardIDs(nextToken string, shardInfo map[string]bool) error {
 	log := w.kclConfig.Logger
 
 	// Initialize ListShardsInput
 	args := &kinesis.ListShardsInput{}
 
 	// When you have a nextToken, you can't set the streamName
-	if nextToken != nil {
-		args.NextToken = nextToken
+	if nextToken != "" {
+		args.NextToken = aws.String(nextToken)
 	} else {
 		args.StreamName = aws.String(w.streamName)
 	}
@@ -363,7 +363,7 @@ func (w *Worker) getShardIDs(nextToken *string, shardInfo map[string]bool) error
 	}
 
 	if listShards.NextToken != nil {
-		err := w.getShardIDs(listShards.NextToken, shardInfo)
+		err := w.getShardIDs(*listShards.NextToken, shardInfo)
 		if err != nil {
 			log.Errorf("Error in getShardID, Error: %+v", err)
 			return err
@@ -377,7 +377,7 @@ func (w *Worker) getShardIDs(nextToken *string, shardInfo map[string]bool) error
 func (w *Worker) syncShard() error {
 	log := w.kclConfig.Logger
 	shardInfo := make(map[string]bool)
-	err := w.getShardIDs(nil, shardInfo)
+	err := w.getShardIDs("", shardInfo)
 
 	if err != nil {
 		return err
