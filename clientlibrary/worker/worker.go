@@ -28,7 +28,6 @@
 package worker
 
 import (
-	"errors"
 	"math/rand"
 	"sync"
 	"time"
@@ -325,32 +324,28 @@ func (w *Worker) eventLoop() {
 	}
 }
 
-// List all ACTIVE shard and store them into shardStatus table
+// List all shards and store them into shardStatus table
 // If shard has been removed, need to exclude it from cached shard status.
-func (w *Worker) getShardIDs(startShardID string, shardInfo map[string]bool) error {
+func (w *Worker) getShardIDs(nextToken *string, shardInfo map[string]bool) error {
 	log := w.kclConfig.Logger
-	// The default pagination limit is 100.
-	args := &kinesis.DescribeStreamInput{
-		StreamName: aws.String(w.streamName),
+
+	// Initialize ListShardsInput
+	args := &kinesis.ListShardsInput{}
+
+	// When you have a nextToken, you can't set the streamName
+	if nextToken != nil {
+		args.NextToken = nextToken
+	} else {
+		args.StreamName = aws.String(w.streamName)
 	}
 
-	if startShardID != "" {
-		args.ExclusiveStartShardId = aws.String(startShardID)
-	}
-
-	streamDesc, err := w.kc.DescribeStream(args)
+	listShards, err := w.kc.ListShards(args)
 	if err != nil {
-		log.Errorf("Error in DescribeStream: %s Error: %+v Request: %s", w.streamName, err, args)
+		log.Errorf("Error in ListShards: %s Error: %+v Request: %s", w.streamName, err, args)
 		return err
 	}
 
-	if *streamDesc.StreamDescription.StreamStatus != "ACTIVE" {
-		log.Warnf("Stream %s is not active", w.streamName)
-		return errors.New("stream not active")
-	}
-
-	var lastShardID string
-	for _, s := range streamDesc.StreamDescription.Shards {
+	for _, s := range listShards.Shards {
 		// record avail shardId from fresh reading from Kinesis
 		shardInfo[*s.ShardId] = true
 
@@ -365,13 +360,12 @@ func (w *Worker) getShardIDs(startShardID string, shardInfo map[string]bool) err
 				EndingSequenceNumber:   aws.StringValue(s.SequenceNumberRange.EndingSequenceNumber),
 			}
 		}
-		lastShardID = *s.ShardId
 	}
 
-	if *streamDesc.StreamDescription.HasMoreShards {
-		err := w.getShardIDs(lastShardID, shardInfo)
+	if listShards.NextToken != nil {
+		err := w.getShardIDs(listShards.NextToken, shardInfo)
 		if err != nil {
-			log.Errorf("Error in getShardIDs: %s Error: %+v", lastShardID, err)
+			log.Errorf("Error in getShardID, Error: %+v", err)
 			return err
 		}
 	}
@@ -383,7 +377,7 @@ func (w *Worker) getShardIDs(startShardID string, shardInfo map[string]bool) err
 func (w *Worker) syncShard() error {
 	log := w.kclConfig.Logger
 	shardInfo := make(map[string]bool)
-	err := w.getShardIDs("", shardInfo)
+	err := w.getShardIDs(nil, shardInfo)
 
 	if err != nil {
 		return err
