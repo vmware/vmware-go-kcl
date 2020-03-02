@@ -329,7 +329,6 @@ func (w *Worker) eventLoop() {
 func (w *Worker) getShardIDs(nextToken string, shardInfo map[string]bool) error {
 	log := w.kclConfig.Logger
 
-	// Initialize ListShardsInput
 	args := &kinesis.ListShardsInput{}
 
 	// When you have a nextToken, you can't set the streamName
@@ -365,7 +364,7 @@ func (w *Worker) getShardIDs(nextToken string, shardInfo map[string]bool) error 
 	if listShards.NextToken != nil {
 		err := w.getShardIDs(*listShards.NextToken, shardInfo)
 		if err != nil {
-			log.Errorf("Error in getShardID, Error: %+v", err)
+			log.Errorf("Error in ListShards: %s Error: %+v Request: %s", w.streamName, err, args)
 			return err
 		}
 	}
