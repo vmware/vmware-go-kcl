@@ -362,7 +362,7 @@ func (w *Worker) getShardIDs(nextToken string, shardInfo map[string]bool) error 
 	}
 
 	if listShards.NextToken != nil {
-		err := w.getShardIDs(*listShards.NextToken, shardInfo)
+		err := w.getShardIDs(aws.StringValue(listShards.NextToken), shardInfo)
 		if err != nil {
 			log.Errorf("Error in ListShards: %s Error: %+v Request: %s", w.streamName, err, args)
 			return err
