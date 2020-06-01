@@ -294,11 +294,11 @@ func (cw *MonitoringService) IncrBytesProcessed(shard string, count int64) {
 	m.processedBytes += count
 }
 
-func (cw *MonitoringService) MillisBehindLatest(shard string, millSeconds float64) {
+func (cw *MonitoringService) MillisBehindLatest(shard string, millis float64) {
 	m := cw.getOrCreatePerShardMetrics(shard)
 	m.Lock()
 	defer m.Unlock()
-	m.behindLatestMillis = append(m.behindLatestMillis, millSeconds)
+	m.behindLatestMillis = append(m.behindLatestMillis, millis)
 }
 
 func (cw *MonitoringService) LeaseGained(shard string) {
@@ -322,17 +322,17 @@ func (cw *MonitoringService) LeaseRenewed(shard string) {
 	m.leaseRenewals++
 }
 
-func (cw *MonitoringService) RecordGetRecordsTime(shard string, time float64) {
+func (cw *MonitoringService) RecordGetRecordsTime(shard string, millis float64) {
 	m := cw.getOrCreatePerShardMetrics(shard)
 	m.Lock()
 	defer m.Unlock()
-	m.getRecordsTime = append(m.getRecordsTime, time)
+	m.getRecordsTime = append(m.getRecordsTime, millis)
 }
-func (cw *MonitoringService) RecordProcessRecordsTime(shard string, time float64) {
+func (cw *MonitoringService) RecordProcessRecordsTime(shard string, millis float64) {
 	m := cw.getOrCreatePerShardMetrics(shard)
 	m.Lock()
 	defer m.Unlock()
-	m.processRecordsTime = append(m.processRecordsTime, time)
+	m.processRecordsTime = append(m.processRecordsTime, millis)
 }
 
 func (cw *MonitoringService) getOrCreatePerShardMetrics(shard string) *cloudWatchMetrics {

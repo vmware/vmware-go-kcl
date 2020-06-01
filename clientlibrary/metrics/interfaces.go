@@ -48,11 +48,11 @@ func (NoopMonitoringService) Init(appName, streamName, workerID string) error { 
 func (NoopMonitoringService) Start() error                                    { return nil }
 func (NoopMonitoringService) Shutdown()                                       {}
 
-func (NoopMonitoringService) IncrRecordsProcessed(shard string, count int)         {}
-func (NoopMonitoringService) IncrBytesProcessed(shard string, count int64)         {}
-func (NoopMonitoringService) MillisBehindLatest(shard string, millSeconds float64) {}
-func (NoopMonitoringService) LeaseGained(shard string)                             {}
-func (NoopMonitoringService) LeaseLost(shard string)                               {}
-func (NoopMonitoringService) LeaseRenewed(shard string)                            {}
-func (NoopMonitoringService) RecordGetRecordsTime(shard string, time float64)      {}
-func (NoopMonitoringService) RecordProcessRecordsTime(shard string, time float64)  {}
+func (NoopMonitoringService) IncrRecordsProcessed(shard string, count int)          {}
+func (NoopMonitoringService) IncrBytesProcessed(shard string, count int64)          {}
+func (NoopMonitoringService) MillisBehindLatest(shard string, millis float64)       {}
+func (NoopMonitoringService) LeaseGained(shard string)                              {}
+func (NoopMonitoringService) LeaseLost(shard string)                                {}
+func (NoopMonitoringService) LeaseRenewed(shard string)                             {}
+func (NoopMonitoringService) RecordGetRecordsTime(shard string, millis float64)     {}
+func (NoopMonitoringService) RecordProcessRecordsTime(shard string, millis float64) {}
