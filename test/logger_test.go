@@ -79,10 +79,20 @@ func TestLogrusLoggerWithConfig(t *testing.T) {
 }
 
 func TestLogrusLogger(t *testing.T) {
-	// adapts to Logger interface
+	// adapts to Logger interface from *logrus.Logger
 	log := logger.NewLogrusLogger(logrus.StandardLogger())
 
 	contextLogger := log.WithFields(logger.Fields{"key1": "value1"})
 	contextLogger.Debugf("Starting with logrus")
 	contextLogger.Infof("Logrus is awesome")
+}
+
+func TestLogrusLoggerWithFieldsAtInit(t *testing.T) {
+	// adapts to Logger interface from *logrus.Entry
+	fieldLogger := logrus.StandardLogger().WithField("key0", "value0")
+	log := logger.NewLogrusLogger(fieldLogger)
+
+	contextLogger := log.WithFields(logger.Fields{"key1": "value1"})
+	contextLogger.Debugf("Starting with logrus")
+	contextLogger.Infof("Structured logging is awesome")
 }
