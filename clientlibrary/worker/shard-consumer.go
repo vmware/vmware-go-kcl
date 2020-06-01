@@ -208,8 +208,7 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 			return err
 		}
 
-		// Convert from nanoseconds to milliseconds
-		getRecordsTime := time.Since(getRecordsStartTime) / 1000000
+		getRecordsTime := time.Since(getRecordsStartTime).Milliseconds()
 		sc.mService.RecordGetRecordsTime(shard.ID, float64(getRecordsTime))
 
 		// reset the retry count after success
@@ -236,8 +235,7 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 			// Delivery the events to the record processor
 			sc.recordProcessor.ProcessRecords(input)
 
-			// Convert from nanoseconds to milliseconds
-			processedRecordsTiming := time.Since(processRecordsStartTime) / 1000000
+			processedRecordsTiming := time.Since(processRecordsStartTime).Milliseconds()
 			sc.mService.RecordProcessRecordsTime(shard.ID, float64(processedRecordsTiming))
 		}
 
