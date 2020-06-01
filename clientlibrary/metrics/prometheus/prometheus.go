@@ -46,13 +46,13 @@ type MonitoringService struct {
 	region        string
 	logger        logger.Logger
 
-	processedRecords   *prom.CounterVec
-	processedBytes     *prom.CounterVec
-	behindLatestMillis *prom.GaugeVec
-	leasesHeld         *prom.GaugeVec
-	leaseRenewals      *prom.CounterVec
-	getRecordsTime     *prom.HistogramVec
-	processRecordsTime *prom.HistogramVec
+	processedRecords    *prom.CounterVec
+	processedBytes      *prom.CounterVec
+	behindLatestSeconds *prom.GaugeVec
+	leasesHeld          *prom.GaugeVec
+	leaseRenewals       *prom.CounterVec
+	getRecordsTime      *prom.HistogramVec
+	processRecordsTime  *prom.HistogramVec
 }
 
 // NewMonitoringService returns a Monitoring service publishing metrics to Prometheus.
@@ -77,9 +77,9 @@ func (p *MonitoringService) Init(appName, streamName, workerID string) error {
 		Name: p.namespace + `_processed_records`,
 		Help: "Number of records processed",
 	}, []string{"kinesisStream", "shard"})
-	p.behindLatestMillis = prom.NewGaugeVec(prom.GaugeOpts{
-		Name: p.namespace + `_behind_latest_millis`,
-		Help: "The amount of milliseconds processing is behind",
+	p.behindLatestSeconds = prom.NewGaugeVec(prom.GaugeOpts{
+		Name: p.namespace + `_behind_latest_seconds`,
+		Help: "The number of seconds processing is behind",
 	}, []string{"kinesisStream", "shard"})
 	p.leasesHeld = prom.NewGaugeVec(prom.GaugeOpts{
 		Name: p.namespace + `_leases_held`,
@@ -90,18 +90,18 @@ func (p *MonitoringService) Init(appName, streamName, workerID string) error {
 		Help: "The number of successful lease renewals",
 	}, []string{"kinesisStream", "shard", "workerID"})
 	p.getRecordsTime = prom.NewHistogramVec(prom.HistogramOpts{
-		Name: p.namespace + `_get_records_duration_milliseconds`,
+		Name: p.namespace + `_get_records_duration_seconds`,
 		Help: "The time taken to fetch records and process them",
 	}, []string{"kinesisStream", "shard"})
 	p.processRecordsTime = prom.NewHistogramVec(prom.HistogramOpts{
-		Name: p.namespace + `_process_records_duration_milliseconds`,
+		Name: p.namespace + `_process_records_duration_seconds`,
 		Help: "The time taken to process records",
 	}, []string{"kinesisStream", "shard"})
 
 	metrics := []prom.Collector{
 		p.processedBytes,
 		p.processedRecords,
-		p.behindLatestMillis,
+		p.behindLatestSeconds,
 		p.leasesHeld,
 		p.leaseRenewals,
 		p.getRecordsTime,
@@ -141,8 +141,8 @@ func (p *MonitoringService) IncrBytesProcessed(shard string, count int64) {
 	p.processedBytes.With(prom.Labels{"shard": shard, "kinesisStream": p.streamName}).Add(float64(count))
 }
 
-func (p *MonitoringService) MillisBehindLatest(shard string, millSeconds float64) {
-	p.behindLatestMillis.With(prom.Labels{"shard": shard, "kinesisStream": p.streamName}).Set(millSeconds)
+func (p *MonitoringService) MillisBehindLatest(shard string, millis float64) {
+	p.behindLatestSeconds.With(prom.Labels{"shard": shard, "kinesisStream": p.streamName}).Set(millis / 1000)
 }
 
 func (p *MonitoringService) LeaseGained(shard string) {
@@ -157,10 +157,10 @@ func (p *MonitoringService) LeaseRenewed(shard string) {
 	p.leaseRenewals.With(prom.Labels{"shard": shard, "kinesisStream": p.streamName, "workerID": p.workerID}).Inc()
 }
 
-func (p *MonitoringService) RecordGetRecordsTime(shard string, time float64) {
-	p.getRecordsTime.With(prom.Labels{"shard": shard, "kinesisStream": p.streamName}).Observe(time)
+func (p *MonitoringService) RecordGetRecordsTime(shard string, millis float64) {
+	p.getRecordsTime.With(prom.Labels{"shard": shard, "kinesisStream": p.streamName}).Observe(millis / 1000)
 }
 
-func (p *MonitoringService) RecordProcessRecordsTime(shard string, time float64) {
-	p.processRecordsTime.With(prom.Labels{"shard": shard, "kinesisStream": p.streamName}).Observe(time)
+func (p *MonitoringService) RecordProcessRecordsTime(shard string, millis float64) {
+	p.processRecordsTime.With(prom.Labels{"shard": shard, "kinesisStream": p.streamName}).Observe(millis / 1000)
 }
