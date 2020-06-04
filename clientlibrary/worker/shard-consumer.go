@@ -208,7 +208,7 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 			return err
 		}
 
-		getRecordsTime := time.Since(getRecordsStartTime).Milliseconds()
+		getRecordsTime := time.Since(getRecordsStartTime) / time.Millisecond
 		sc.mService.RecordGetRecordsTime(shard.ID, float64(getRecordsTime))
 
 		// reset the retry count after success
@@ -235,7 +235,7 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 			// Delivery the events to the record processor
 			sc.recordProcessor.ProcessRecords(input)
 
-			processedRecordsTiming := time.Since(processRecordsStartTime).Milliseconds()
+			processedRecordsTiming := time.Since(processRecordsStartTime) / time.Millisecond
 			sc.mService.RecordProcessRecordsTime(shard.ID, float64(processedRecordsTiming))
 		}
 
