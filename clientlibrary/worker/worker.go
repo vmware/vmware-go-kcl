@@ -147,20 +147,6 @@ func (w *Worker) Shutdown() {
 	log.Infof("Worker loop is complete. Exiting from worker.")
 }
 
-// Publish to write some data into stream. This function is mainly used for testing purpose.
-func (w *Worker) Publish(streamName, partitionKey string, data []byte) error {
-	log := w.kclConfig.Logger
-	_, err := w.kc.PutRecord(&kinesis.PutRecordInput{
-		Data:         data,
-		StreamName:   aws.String(streamName),
-		PartitionKey: aws.String(partitionKey),
-	})
-	if err != nil {
-		log.Errorf("Error in publishing data to %s/%s. Error: %+v", streamName, partitionKey, err)
-	}
-	return err
-}
-
 // initialize
 func (w *Worker) initialize() error {
 	log := w.kclConfig.Logger
