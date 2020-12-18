@@ -34,7 +34,6 @@ import (
 	chk "github.com/vmware/vmware-go-kcl/clientlibrary/checkpoint"
 	cfg "github.com/vmware/vmware-go-kcl/clientlibrary/config"
 	par "github.com/vmware/vmware-go-kcl/clientlibrary/partition"
-	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
 	wk "github.com/vmware/vmware-go-kcl/clientlibrary/worker"
 )
 
@@ -65,13 +64,8 @@ func TestWorkerInjectCheckpointer(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Put some data into stream.
-	for i := 0; i < 100; i++ {
-		// Use random string as partition key to ensure even distribution across shards
-		err := worker.Publish(streamName, utils.RandStringBytesMaskImpr(10), []byte(specstr))
-		if err != nil {
-			t.Errorf("Errorin Publish. %+v", err)
-		}
-	}
+	kc := NewKinesisClient(t, regionName, kclConfig.KinesisEndpoint, kclConfig.KinesisCredentials)
+	publishSomeData(t, kc)
 
 	// wait a few seconds before shutdown processing
 	time.Sleep(10 * time.Second)
@@ -124,13 +118,7 @@ func TestWorkerInjectKinesis(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Put some data into stream.
-	for i := 0; i < 100; i++ {
-		// Use random string as partition key to ensure even distribution across shards
-		err := worker.Publish(streamName, utils.RandStringBytesMaskImpr(10), []byte(specstr))
-		if err != nil {
-			t.Errorf("Errorin Publish. %+v", err)
-		}
-	}
+	publishSomeData(t, kc)
 
 	// wait a few seconds before shutdown processing
 	time.Sleep(10 * time.Second)
@@ -173,13 +161,7 @@ func TestWorkerInjectKinesisAndCheckpointer(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Put some data into stream.
-	for i := 0; i < 100; i++ {
-		// Use random string as partition key to ensure even distribution across shards
-		err := worker.Publish(streamName, utils.RandStringBytesMaskImpr(10), []byte(specstr))
-		if err != nil {
-			t.Errorf("Errorin Publish. %+v", err)
-		}
-	}
+	publishSomeData(t, kc)
 
 	// wait a few seconds before shutdown processing
 	time.Sleep(10 * time.Second)
