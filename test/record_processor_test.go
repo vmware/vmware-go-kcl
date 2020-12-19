@@ -43,7 +43,7 @@ func (d *dumpRecordProcessorFactory) CreateProcessor() kc.IRecordProcessor {
 
 // Create a dump record processor for printing out all data from record.
 type dumpRecordProcessor struct {
-	t *testing.T
+	t     *testing.T
 	count int
 }
 

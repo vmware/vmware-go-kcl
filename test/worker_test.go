@@ -51,7 +51,7 @@ const metricsSystem = "cloudwatch"
 var shardID string
 
 func TestWorker(t *testing.T) {
-	// At miminal. use standard logrus logger
+	// At minimal. use standard logrus logger
 	// log := logger.NewLogrusLogger(logrus.StandardLogger())
 	//
 	// In order to have precise control over logging. Use logger with config
