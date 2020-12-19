@@ -31,7 +31,7 @@ import (
 const specstr = `{"name":"kube-qQyhk","networking":{"containerNetworkCidr":"10.2.0.0/16"},"orgName":"BVT-Org-cLQch","projectName":"project-tDSJd","serviceLevel":"DEVELOPER","size":{"count":1},"version":"1.8.1-4"}`
 
 // NewKinesisClient to create a Kinesis Client.
-func NewKinesisClient(t *testing.T, regionName, endpoint string, credentials *credentials.Credentials) *kinesis.Kinesis{
+func NewKinesisClient(t *testing.T, regionName, endpoint string, credentials *credentials.Credentials) *kinesis.Kinesis {
 	s, err := session.NewSession(&aws.Config{
 		Region:      aws.String(regionName),
 		Endpoint:    aws.String(endpoint),
@@ -81,7 +81,7 @@ func publishRecords(t *testing.T, kc kinesisiface.KinesisAPI) {
 	// Use random string as partition key to ensure even distribution across shards
 	records := make([]*kinesis.PutRecordsRequestEntry, 5)
 
-	for i:= 0; i < 5; i++ {
+	for i := 0; i < 5; i++ {
 		records[i] = &kinesis.PutRecordsRequestEntry{
 			Data:         []byte(specstr),
 			PartitionKey: aws.String(utils.RandStringBytesMaskImpr(10)),
@@ -89,8 +89,8 @@ func publishRecords(t *testing.T, kc kinesisiface.KinesisAPI) {
 	}
 
 	_, err := kc.PutRecords(&kinesis.PutRecordsInput{
-		Records:      records,
-		StreamName:   aws.String(streamName),
+		Records:    records,
+		StreamName: aws.String(streamName),
 	})
 
 	if err != nil {

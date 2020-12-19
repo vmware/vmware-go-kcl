@@ -48,7 +48,7 @@ const (
 	ErrInvalidDynamoDBSchema = "The DynamoDB schema is invalid and may need to be re-created"
 
 	// NumMaxRetries is the max times of doing retry
-	NumMaxRetries = 5
+	NumMaxRetries = 10
 )
 
 // DynamoCheckpoint implements the Checkpoint interface using DynamoDB as a backend
@@ -92,7 +92,13 @@ func (checkpointer *DynamoCheckpoint) Init() error {
 		Region:      aws.String(checkpointer.kclConfig.RegionName),
 		Endpoint:    aws.String(checkpointer.kclConfig.DynamoDBEndpoint),
 		Credentials: checkpointer.kclConfig.DynamoDBCredentials,
-		Retryer:     client.DefaultRetryer{NumMaxRetries: checkpointer.Retries},
+		Retryer: client.DefaultRetryer{
+			NumMaxRetries:    checkpointer.Retries,
+			MinRetryDelay:    client.DefaultRetryerMinRetryDelay,
+			MinThrottleDelay: client.DefaultRetryerMinThrottleDelay,
+			MaxRetryDelay:    client.DefaultRetryerMaxRetryDelay,
+			MaxThrottleDelay: client.DefaultRetryerMaxRetryDelay,
+		},
 	})
 
 	if err != nil {
