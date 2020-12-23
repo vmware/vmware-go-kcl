@@ -69,7 +69,7 @@ func TestWorker(t *testing.T) {
 
 	kclConfig := cfg.NewKinesisClientLibConfig("appName", streamName, regionName, workerID).
 		WithInitialPositionInStream(cfg.LATEST).
-		WithMaxRecords(10).
+		WithMaxRecords(8).
 		WithMaxLeasesForWorker(1).
 		WithShardSyncIntervalMillis(5000).
 		WithFailoverTimeMillis(300000).

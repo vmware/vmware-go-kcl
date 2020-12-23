@@ -67,10 +67,12 @@ func (dd *dumpRecordProcessor) ProcessRecords(input *kc.ProcessRecordsInput) {
 		dd.count++
 	}
 
-	// checkpoint it after processing this batch
-	lastRecordSequenceNubmer := input.Records[len(input.Records)-1].SequenceNumber
-	dd.t.Logf("Checkpoint progress at: %v,  MillisBehindLatest = %v", lastRecordSequenceNubmer, input.MillisBehindLatest)
-	input.Checkpointer.Checkpoint(lastRecordSequenceNubmer)
+	// checkpoint it after processing this batch.
+	// Especially, for processing de-aggregated KPL records, checkpointing has to happen at the end of batch
+	// because de-aggregated records share the same sequence number.
+	lastRecordSequenceNumber := input.Records[len(input.Records)-1].SequenceNumber
+	dd.t.Logf("Checkpoint progress at: %v,  MillisBehindLatest = %v", lastRecordSequenceNumber, input.MillisBehindLatest)
+	input.Checkpointer.Checkpoint(lastRecordSequenceNumber)
 }
 
 func (dd *dumpRecordProcessor) Shutdown(input *kc.ShutdownInput) {
