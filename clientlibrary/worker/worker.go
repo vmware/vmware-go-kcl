@@ -277,7 +277,7 @@ func (w *Worker) eventLoop() {
 				err = w.checkpointer.GetLease(shard, w.workerID)
 				if err != nil {
 					// cannot get lease on the shard
-					if err.Error() != chk.ErrLeaseNotAquired {
+					if err.Error() != chk.ErrLeaseNotAcquired {
 						log.Errorf("Cannot get lease: %+v", err)
 					}
 					continue

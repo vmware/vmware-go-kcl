@@ -142,7 +142,7 @@ func (checkpointer *DynamoCheckpoint) GetLease(shard *par.ShardStatus, newAssign
 		}
 
 		if time.Now().UTC().Before(currentLeaseTimeout) && assignedTo != newAssignTo {
-			return errors.New(ErrLeaseNotAquired)
+			return errors.New(ErrLeaseNotAcquired)
 		}
 
 		checkpointer.log.Debugf("Attempting to get a lock for shard: %s, leaseTimeout: %s, assignedTo: %s", shard.ID, currentLeaseTimeout, assignedTo)
@@ -186,7 +186,7 @@ func (checkpointer *DynamoCheckpoint) GetLease(shard *par.ShardStatus, newAssign
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
 			if awsErr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-				return errors.New(ErrLeaseNotAquired)
+				return errors.New(ErrLeaseNotAcquired)
 			}
 		}
 		return err
