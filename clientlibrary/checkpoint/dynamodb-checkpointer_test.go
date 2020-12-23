@@ -85,7 +85,7 @@ func TestGetLeaseNotAquired(t *testing.T) {
 		Checkpoint: "",
 		Mux:        &sync.Mutex{},
 	}, "ijkl-mnop")
-	if err == nil || err.Error() != ErrLeaseNotAquired {
+	if err == nil || err.Error() != ErrLeaseNotAcquired {
 		t.Errorf("Got a lease when it was already held by abcd-efgh: %s", err)
 	}
 }

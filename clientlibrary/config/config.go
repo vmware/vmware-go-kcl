@@ -55,72 +55,72 @@ const (
 
 	// The location in the shard from which the KinesisClientLibrary will start fetching records from
 	// when the application starts for the first time and there is no checkpoint for the shard.
-	DEFAULT_INITIAL_POSITION_IN_STREAM = LATEST
+	DefaultInitialPositionInStream = LATEST
 
 	// Fail over time in milliseconds. A worker which does not renew it's lease within this time interval
 	// will be regarded as having problems and it's shards will be assigned to other workers.
 	// For applications that have a large number of shards, this may be set to a higher number to reduce
 	// the number of DynamoDB IOPS required for tracking leases.
-	DEFAULT_FAILOVER_TIME_MILLIS = 10000
+	DefaultFailoverTimeMillis = 10000
 
 	// Period before the end of lease during which a lease is refreshed by the owner.
-	DEFAULT_LEASE_REFRESH_PERIOD_MILLIS = 5000
+	DefaultLeaseRefreshPeriodMillis = 5000
 
 	// Max records to fetch from Kinesis in a single GetRecords call.
-	DEFAULT_MAX_RECORDS = 10000
+	DefaultMaxRecords = 10000
 
 	// The default value for how long the {@link ShardConsumer} should sleep if no records are returned
 	// from the call to
-	DEFAULT_IDLETIME_BETWEEN_READS_MILLIS = 1000
+	DefaultIdletimeBetweenReadsMillis = 1000
 
 	// Don't call processRecords() on the record processor for empty record lists.
-	DEFAULT_DONT_CALL_PROCESS_RECORDS_FOR_EMPTY_RECORD_LIST = false
+	DefaultDontCallProcessRecordsForEmptyRecordList = false
 
 	// Interval in milliseconds between polling to check for parent shard completion.
 	// Polling frequently will take up more DynamoDB IOPS (when there are leases for shards waiting on
 	// completion of parent shards).
-	DEFAULT_PARENT_SHARD_POLL_INTERVAL_MILLIS = 10000
+	DefaultParentShardPollIntervalMillis = 10000
 
 	// Shard sync interval in milliseconds - e.g. wait for this long between shard sync tasks.
-	DEFAULT_SHARD_SYNC_INTERVAL_MILLIS = 60000
+	DefaultShardSyncIntervalMillis = 60000
 
 	// Cleanup leases upon shards completion (don't wait until they expire in Kinesis).
 	// Keeping leases takes some tracking/resources (e.g. they need to be renewed, assigned), so by
 	// default we try to delete the ones we don't need any longer.
-	DEFAULT_CLEANUP_LEASES_UPON_SHARDS_COMPLETION = true
+	DefaultCleanupLeasesUponShardsCompletion = true
 
 	// Backoff time in milliseconds for Amazon Kinesis Client Library tasks (in the event of failures).
-	DEFAULT_TASK_BACKOFF_TIME_MILLIS = 500
+	DefaultTaskBackoffTimeMillis = 500
 
 	// KCL will validate client provided sequence numbers with a call to Amazon Kinesis before
 	// checkpointing for calls to {@link RecordProcessorCheckpointer#checkpoint(String)} by default.
-	DEFAULT_VALIDATE_SEQUENCE_NUMBER_BEFORE_CHECKPOINTING = true
+	DefaultValidateSequenceNumberBeforeCheckpointing = true
 
 	// The max number of leases (shards) this worker should process.
 	// This can be useful to avoid overloading (and thrashing) a worker when a host has resource constraints
 	// or during deployment.
 	// NOTE: Setting this to a low value can cause data loss if workers are not able to pick up all shards in the
 	// stream due to the max limit.
-	DEFAULT_MAX_LEASES_FOR_WORKER = math.MaxInt16
+	DefaultMaxLeasesForWorker = math.MaxInt16
 
 	// Max leases to steal from another worker at one time (for load balancing).
 	// Setting this to a higher number can allow for faster load convergence (e.g. during deployments, cold starts),
 	// but can cause higher churn in the system.
-	DEFAULT_MAX_LEASES_TO_STEAL_AT_ONE_TIME = 1
+	DefaultMaxLeasesToStealAtOneTime = 1
 
 	// The Amazon DynamoDB table used for tracking leases will be provisioned with this read capacity.
-	DEFAULT_INITIAL_LEASE_TABLE_READ_CAPACITY = 10
+	DefaultInitialLeaseTableReadCapacity = 10
 
 	// The Amazon DynamoDB table used for tracking leases will be provisioned with this write capacity.
-	DEFAULT_INITIAL_LEASE_TABLE_WRITE_CAPACITY = 10
+	DefaultInitialLeaseTableWriteCapacity = 10
 
 	// The Worker will skip shard sync during initialization if there are one or more leases in the lease table. This
 	// assumes that the shards and leases are in-sync. This enables customers to choose faster startup times (e.g.
 	// during incremental deployments of an application).
-	DEFAULT_SKIP_SHARD_SYNC_AT_STARTUP_IF_LEASES_EXIST = false
+	DefaultSkipShardSyncAtStartupIfLeasesExist = false
 
 	// The amount of milliseconds to wait before graceful shutdown forcefully terminates.
-	DEFAULT_SHUTDOWN_GRACE_MILLIS = 5000
+	DefaultShutdownGraceMillis = 5000
 )
 
 type (

@@ -162,7 +162,7 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 			log.Debugf("Refreshing lease on shard: %s for worker: %s", shard.ID, sc.consumerID)
 			err = sc.checkpointer.GetLease(shard, sc.consumerID)
 			if err != nil {
-				if err.Error() == chk.ErrLeaseNotAquired {
+				if err.Error() == chk.ErrLeaseNotAcquired {
 					log.Warnf("Failed in acquiring lease on shard: %s for worker: %s", shard.ID, sc.consumerID)
 					return nil
 				}
@@ -225,7 +225,7 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 
 		recordLength := len(input.Records)
 		recordBytes := int64(0)
-		log.Debugf("Received %d records, MillisBehindLatest: %v", recordLength, input.MillisBehindLatest)
+		log.Debugf("Received %d de-aggregated records, MillisBehindLatest: %v", recordLength, input.MillisBehindLatest)
 
 		for _, r := range dars {
 			recordBytes += int64(len(r.Data))

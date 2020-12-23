@@ -42,8 +42,8 @@ const (
 	// We've completely processed all records in this shard.
 	ShardEnd = "SHARD_END"
 
-	// ErrLeaseNotAquired is returned when we failed to get a lock on the shard
-	ErrLeaseNotAquired = "Lease is already held by another node"
+	// ErrLeaseNotAcquired is returned when we failed to get a lock on the shard
+	ErrLeaseNotAcquired = "lease is already held by another node"
 )
 
 // Checkpointer handles checkpointing when a record has been processed

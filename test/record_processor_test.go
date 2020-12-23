@@ -71,7 +71,9 @@ func (dd *dumpRecordProcessor) ProcessRecords(input *kc.ProcessRecordsInput) {
 	// Especially, for processing de-aggregated KPL records, checkpointing has to happen at the end of batch
 	// because de-aggregated records share the same sequence number.
 	lastRecordSequenceNumber := input.Records[len(input.Records)-1].SequenceNumber
-	dd.t.Logf("Checkpoint progress at: %v,  MillisBehindLatest = %v", lastRecordSequenceNumber, input.MillisBehindLatest)
+	// Calculate the time taken from polling records and delivering to record processor for a batch.
+	diff := input.CacheExitTime.Sub(*input.CacheEntryTime)
+	dd.t.Logf("Checkpoint progress at: %v,  MillisBehindLatest = %v, KCLProcessTime = %v", lastRecordSequenceNumber, input.MillisBehindLatest, diff)
 	input.Checkpointer.Checkpoint(lastRecordSequenceNumber)
 }
 
