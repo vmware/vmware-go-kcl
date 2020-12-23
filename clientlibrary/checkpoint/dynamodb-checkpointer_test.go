@@ -131,7 +131,7 @@ func TestGetLeaseAquired(t *testing.T) {
 		t.Errorf("Lease not aquired after timeout %s", err)
 	}
 
-	id, ok := svc.item[CHECKPOINT_SEQUENCE_NUMBER_KEY]
+	id, ok := svc.item[SequenceNumberKey]
 	if !ok {
 		t.Error("Expected checkpoint to be set by GetLease")
 	} else if *id.S != "deadbeef" {
@@ -172,24 +172,24 @@ func (m *mockDynamoDB) DescribeTable(*dynamodb.DescribeTableInput) (*dynamodb.De
 func (m *mockDynamoDB) PutItem(input *dynamodb.PutItemInput) (*dynamodb.PutItemOutput, error) {
 	item := input.Item
 
-	if shardID, ok := item[LEASE_KEY_KEY]; ok {
-		m.item[LEASE_KEY_KEY] = shardID
+	if shardID, ok := item[LeaseKeyKey]; ok {
+		m.item[LeaseKeyKey] = shardID
 	}
 
-	if owner, ok := item[LEASE_OWNER_KEY]; ok {
-		m.item[LEASE_OWNER_KEY] = owner
+	if owner, ok := item[LeaseOwnerKey]; ok {
+		m.item[LeaseOwnerKey] = owner
 	}
 
-	if timeout, ok := item[LEASE_TIMEOUT_KEY]; ok {
-		m.item[LEASE_TIMEOUT_KEY] = timeout
+	if timeout, ok := item[LeaseTimeoutKey]; ok {
+		m.item[LeaseTimeoutKey] = timeout
 	}
 
-	if checkpoint, ok := item[CHECKPOINT_SEQUENCE_NUMBER_KEY]; ok {
-		m.item[CHECKPOINT_SEQUENCE_NUMBER_KEY] = checkpoint
+	if checkpoint, ok := item[SequenceNumberKey]; ok {
+		m.item[SequenceNumberKey] = checkpoint
 	}
 
-	if parent, ok := item[PARENT_SHARD_ID_KEY]; ok {
-		m.item[PARENT_SHARD_ID_KEY] = parent
+	if parent, ok := item[ParentShardIdKey]; ok {
+		m.item[ParentShardIdKey] = parent
 	}
 
 	return nil, nil
@@ -204,8 +204,8 @@ func (m *mockDynamoDB) GetItem(input *dynamodb.GetItemInput) (*dynamodb.GetItemO
 func (m *mockDynamoDB) UpdateItem(input *dynamodb.UpdateItemInput) (*dynamodb.UpdateItemOutput, error) {
 	exp := input.UpdateExpression
 
-	if aws.StringValue(exp) == "remove "+LEASE_OWNER_KEY {
-		delete(m.item, LEASE_OWNER_KEY)
+	if aws.StringValue(exp) == "remove "+LeaseOwnerKey {
+		delete(m.item, LeaseOwnerKey)
 	}
 
 	return nil, nil

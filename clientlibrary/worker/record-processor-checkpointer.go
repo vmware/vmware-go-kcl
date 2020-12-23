@@ -69,7 +69,7 @@ func (rc *RecordProcessorCheckpointer) Checkpoint(sequenceNumber *string) error 
 
 	// checkpoint the last sequence of a closed shard
 	if sequenceNumber == nil {
-		rc.shard.Checkpoint = chk.SHARD_END
+		rc.shard.Checkpoint = chk.ShardEnd
 	} else {
 		rc.shard.Checkpoint = aws.StringValue(sequenceNumber)
 	}

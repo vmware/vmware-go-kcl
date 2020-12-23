@@ -121,15 +121,6 @@ const (
 
 	// The amount of milliseconds to wait before graceful shutdown forcefully terminates.
 	DEFAULT_SHUTDOWN_GRACE_MILLIS = 5000
-
-	// The size of the thread pool to create for the lease renewer to use.
-	DEFAULT_MAX_LEASE_RENEWAL_THREADS = 20
-
-	// The sleep time between two listShards calls from the proxy when throttled.
-	DEFAULT_LIST_SHARDS_BACKOFF_TIME_IN_MILLIS = 1500
-
-	// The number of times the Proxy will retry listShards call when throttled.
-	DEFAULT_MAX_LIST_SHARDS_RETRY_ATTEMPTS = 50
 )
 
 type (

@@ -36,6 +36,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/aws/aws-sdk-go/service/kinesis/kinesisiface"
+	deagg "github.com/awslabs/kinesis-aggregation/go/deaggregator"
 
 	chk "github.com/vmware/vmware-go-kcl/clientlibrary/checkpoint"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/config"
@@ -47,19 +48,7 @@ import (
 const (
 	// This is the initial state of a shard consumer. This causes the consumer to remain blocked until the all
 	// parent shards have been completed.
-	WAITING_ON_PARENT_SHARDS ShardConsumerState = iota + 1
-
-	// This state is responsible for initializing the record processor with the shard information.
-	INITIALIZING
-
-	//
-	PROCESSING
-
-	SHUTDOWN_REQUESTED
-
-	SHUTTING_DOWN
-
-	SHUTDOWN_COMPLETE
+	WaitingOnParentShards ShardConsumerState = iota + 1
 
 	// ErrCodeKMSThrottlingException is defined in the API Reference https://docs.aws.amazon.com/sdk-for-go/api/service/kinesis/#Kinesis.GetRecords
 	// But it's not a constant?
@@ -215,9 +204,21 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 		// reset the retry count after success
 		retriedErrors = 0
 
+		log.Debugf("Received %d original records.", len(getResp.Records))
+
+		// De-aggregate the records if they were published by the KPL.
+		dars := make([]*kinesis.Record, 0)
+		dars, err = deagg.DeaggregateRecords(getResp.Records)
+
+		if err != nil {
+			// The error is caused by bad KPL publisher and just skip the bad records
+			// instead of being stuck here.
+			log.Errorf("Error in de-aggregating KPL records: %+v", err)
+		}
+
 		// IRecordProcessorCheckpointer
 		input := &kcl.ProcessRecordsInput{
-			Records:            getResp.Records,
+			Records:            dars,
 			MillisBehindLatest: aws.Int64Value(getResp.MillisBehindLatest),
 			Checkpointer:       recordCheckpointer,
 		}
@@ -226,7 +227,7 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 		recordBytes := int64(0)
 		log.Debugf("Received %d records, MillisBehindLatest: %v", recordLength, input.MillisBehindLatest)
 
-		for _, r := range getResp.Records {
+		for _, r := range dars {
 			recordBytes += int64(len(r.Data))
 		}
 
@@ -234,6 +235,8 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 			processRecordsStartTime := time.Now()
 
 			// Delivery the events to the record processor
+			input.CacheEntryTime = &getRecordsStartTime
+			input.CacheExitTime = &processRecordsStartTime
 			sc.recordProcessor.ProcessRecords(input)
 
 			// Convert from nanoseconds to milliseconds
@@ -288,7 +291,7 @@ func (sc *ShardConsumer) waitOnParentShard(shard *par.ShardStatus) error {
 		}
 
 		// Parent shard is finished.
-		if pshard.Checkpoint == chk.SHARD_END {
+		if pshard.Checkpoint == chk.ShardEnd {
 			return nil
 		}
 

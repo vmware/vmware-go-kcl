@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 VMware, Inc.
+ * Copyright (c) 2020 VMware, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
  * associated documentation files (the "Software"), to deal in the Software without restriction, including
@@ -48,6 +48,7 @@ const (
 	 * instead depend on a different interface for backward compatibility.
 	 */
 	REQUESTED ShutdownReason = iota + 1
+
 	/**
 	 * Terminate processing for this RecordProcessor (resharding use case).
 	 * Indicates that the shard is closed and all records from the shard have been delivered to the application.
@@ -55,6 +56,7 @@ const (
 	 * from this shard and processing of child shards can be started.
 	 */
 	TERMINATE
+
 	/**
 	 * Processing will be moved to a different record processor (fail over, load balancing use cases).
 	 * Applications SHOULD NOT checkpoint their progress (as another record processor may have already started
@@ -76,22 +78,36 @@ type (
 	ShutdownReason int
 
 	InitializationInput struct {
-		ShardId                         string
-		ExtendedSequenceNumber          *ExtendedSequenceNumber
-		PendingCheckpointSequenceNumber *ExtendedSequenceNumber
+		// The shardId that the record processor is being initialized for.
+		ShardId string
+
+		// The last extended sequence number that was successfully checkpointed by the previous record processor.
+		ExtendedSequenceNumber *ExtendedSequenceNumber
 	}
 
 	ProcessRecordsInput struct {
-		CacheEntryTime     *time.Time
-		CacheExitTime      *time.Time
-		Records            []*ks.Record
-		Checkpointer       IRecordProcessorCheckpointer
+		// The time that this batch of records was received by the KCL.
+		CacheEntryTime *time.Time
+
+		// The time that this batch of records was prepared to be provided to the RecordProcessor.
+		CacheExitTime *time.Time
+
+		// The records received from Kinesis. These records may have been de-aggregated if they were published by the KPL.
+		Records []*ks.Record
+
+		// A checkpointer that the RecordProcessor can use to checkpoint its progress.
+		Checkpointer IRecordProcessorCheckpointer
+
+		// How far behind this batch of records was when received from Kinesis.
 		MillisBehindLatest int64
 	}
 
 	ShutdownInput struct {
+		// ShutdownReason shows why RecordProcessor is going to be shutdown.
 		ShutdownReason ShutdownReason
-		Checkpointer   IRecordProcessorCheckpointer
+
+		// Checkpointer is used to record the current progress.
+		Checkpointer IRecordProcessorCheckpointer
 	}
 )
 

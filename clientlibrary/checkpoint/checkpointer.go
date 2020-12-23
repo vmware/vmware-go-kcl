@@ -33,14 +33,14 @@ import (
 )
 
 const (
-	LEASE_KEY_KEY                  = "ShardID"
-	LEASE_OWNER_KEY                = "AssignedTo"
-	LEASE_TIMEOUT_KEY              = "LeaseTimeout"
-	CHECKPOINT_SEQUENCE_NUMBER_KEY = "Checkpoint"
-	PARENT_SHARD_ID_KEY            = "ParentShardId"
+	LeaseKeyKey       = "ShardID"
+	LeaseOwnerKey     = "AssignedTo"
+	LeaseTimeoutKey   = "LeaseTimeout"
+	SequenceNumberKey = "Checkpoint"
+	ParentShardIdKey  = "ParentShardId"
 
 	// We've completely processed all records in this shard.
-	SHARD_END = "SHARD_END"
+	ShardEnd = "SHARD_END"
 
 	// ErrLeaseNotAquired is returned when we failed to get a lock on the shard
 	ErrLeaseNotAquired = "Lease is already held by another node"

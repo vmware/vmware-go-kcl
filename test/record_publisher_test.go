@@ -19,12 +19,17 @@
 package test
 
 import (
+	"crypto/md5"
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/aws/aws-sdk-go/service/kinesis/kinesisiface"
+	rec "github.com/awslabs/kinesis-aggregation/go/records"
+	"github.com/golang/protobuf/proto"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
+
 	"testing"
 )
 
@@ -60,6 +65,13 @@ func publishSomeData(t *testing.T, kc kinesisiface.KinesisAPI) {
 		publishRecords(t, kc)
 	}
 	t.Log("Done putting data into stream using PutRecords API.")
+
+	// Put some data into stream using KPL Aggregate Record format
+	t.Log("Putting data into stream using KPL Aggregate Record ...")
+	for i := 0; i < 10; i++ {
+		publishAggregateRecord(t, kc)
+	}
+	t.Log("Done putting data into stream using KPL Aggregate Record.")
 }
 
 // publishRecord to put a record into Kinesis stream using PutRecord API.
@@ -96,4 +108,56 @@ func publishRecords(t *testing.T, kc kinesisiface.KinesisAPI) {
 	if err != nil {
 		t.Errorf("Error in PutRecords. %+v", err)
 	}
+}
+
+// publishRecord to put a record into Kinesis stream using PutRecord API.
+func publishAggregateRecord(t *testing.T, kc kinesisiface.KinesisAPI) {
+	data := generateAggregateRecord(5, specstr)
+	// Use random string as partition key to ensure even distribution across shards
+	_, err := kc.PutRecord(&kinesis.PutRecordInput{
+		Data:         data,
+		StreamName:   aws.String(streamName),
+		PartitionKey: aws.String(utils.RandStringBytesMaskImpr(10)),
+	})
+
+	if err != nil {
+		t.Errorf("Error in PutRecord. %+v", err)
+	}
+}
+
+// generateAggregateRecord generates an aggregate record in the correct AWS-specified format used by KPL.
+// https://github.com/awslabs/amazon-kinesis-producer/blob/master/aggregation-format.md
+// copy from: https://github.com/awslabs/kinesis-aggregation/blob/master/go/deaggregator/deaggregator_test.go
+func generateAggregateRecord(numRecords int, content string) []byte {
+	aggr := &rec.AggregatedRecord{}
+	// Start with the magic header
+	aggRecord := []byte("\xf3\x89\x9a\xc2")
+	partKeyTable := make([]string, 0)
+
+	// Create proto record with numRecords length
+	for i := 0; i < numRecords; i++ {
+		var partKey uint64
+		var hashKey uint64
+		partKey = uint64(i)
+		hashKey = uint64(i) * uint64(10)
+		r := &rec.Record{
+			PartitionKeyIndex:    &partKey,
+			ExplicitHashKeyIndex: &hashKey,
+			Data:                 []byte(content),
+			Tags:                 make([]*rec.Tag, 0),
+		}
+
+		aggr.Records = append(aggr.Records, r)
+		partKeyVal := fmt.Sprint(i)
+		partKeyTable = append(partKeyTable, partKeyVal)
+	}
+
+	aggr.PartitionKeyTable = partKeyTable
+	// Marshal to protobuf record, create md5 sum from proto record
+	// and append both to aggRecord with magic header
+	data, _ := proto.Marshal(aggr)
+	md5Hash := md5.Sum(data)
+	aggRecord = append(aggRecord, data...)
+	aggRecord = append(aggRecord, md5Hash[:]...)
+	return aggRecord
 }

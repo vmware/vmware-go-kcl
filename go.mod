@@ -3,6 +3,8 @@ module github.com/vmware/vmware-go-kcl
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/aws/aws-sdk-go v1.34.8
+	github.com/awslabs/kinesis-aggregation/go v0.0.0-20201211133042-142dfe1d7a6d
+	github.com/golang/protobuf v1.3.1
 	github.com/google/uuid v1.1.1
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/prometheus/client_golang v0.9.3
