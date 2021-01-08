@@ -89,4 +89,4 @@ settings:
     - test
   docker:
     image: 'vmware/go-kcl-toolchain:0.1.2'
-    src-volume: /go/src/github.com/vmware/vmware-go-kcl
+    src-volume: /go/src/github.com/discovery-digital/vmware-go-kcl

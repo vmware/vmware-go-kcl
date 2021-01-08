@@ -37,7 +37,7 @@ import (
 	cwatch "github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
 
-	"github.com/vmware/vmware-go-kcl/logger"
+	"github.com/discovery-digital/vmware-go-kcl/logger"
 )
 
 // Buffer metrics for at most this long before publishing to CloudWatch.

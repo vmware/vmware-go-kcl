@@ -27,8 +27,8 @@ import (
 	"go.uber.org/zap"
 	"testing"
 
-	"github.com/vmware/vmware-go-kcl/logger"
-	zaplogger "github.com/vmware/vmware-go-kcl/logger/zap"
+	"github.com/discovery-digital/vmware-go-kcl/logger"
+	zaplogger "github.com/discovery-digital/vmware-go-kcl/logger/zap"
 )
 
 func TestZapLoggerWithConfig(t *testing.T) {

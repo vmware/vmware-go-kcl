@@ -41,8 +41,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	creds "github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
-	"github.com/vmware/vmware-go-kcl/logger"
+	"github.com/discovery-digital/vmware-go-kcl/clientlibrary/metrics"
+	"github.com/discovery-digital/vmware-go-kcl/logger"
 )
 
 const (

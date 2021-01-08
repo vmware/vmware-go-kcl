@@ -39,8 +39,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 
-	cfg "github.com/vmware/vmware-go-kcl/clientlibrary/config"
-	par "github.com/vmware/vmware-go-kcl/clientlibrary/partition"
+	cfg "github.com/discovery-digital/vmware-go-kcl/clientlibrary/config"
+	par "github.com/discovery-digital/vmware-go-kcl/clientlibrary/partition"
 )
 
 func TestDoesTableExist(t *testing.T) {

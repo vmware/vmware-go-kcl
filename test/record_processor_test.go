@@ -21,7 +21,7 @@ package test
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
-	kc "github.com/vmware/vmware-go-kcl/clientlibrary/interfaces"
+	kc "github.com/discovery-digital/vmware-go-kcl/clientlibrary/interfaces"
 	"testing"
 )
 
