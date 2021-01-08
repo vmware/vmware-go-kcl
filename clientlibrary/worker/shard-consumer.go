@@ -182,6 +182,24 @@ func (sc *ShardConsumer) getRecords(shard *par.ShardStatus) error {
 		}
 		// Get records from stream and retry as needed
 		getResp, err := sc.kc.GetRecords(getRecordsArgs)
+
+		// GetRecords does its own retry logic, verify we still have a lease and try to renew
+		if time.Now().UTC().After(shard.LeaseTimeout.Add(-time.Duration(sc.kclConfig.LeaseRefreshPeriodMillis) * time.Millisecond)) {
+			log.Warnf(`lease expired while reading records: shardid: %s, consumerID: %s`, shard.ID, sc.consumerID)
+			log.Debugf("Refreshing lease on shard: %s for worker: %s", shard.ID, sc.consumerID)
+			err = sc.checkpointer.GetLease(shard, sc.consumerID)
+			if err != nil {
+				if err.Error() == chk.ErrLeaseNotAcquired {
+					log.Warnf("Failed in acquiring lease on shard: %s for worker: %s", shard.ID, sc.consumerID)
+					return nil
+				}
+				// log and return error
+				log.Errorf("Error in refreshing lease on shard: %s for worker: %s. Error: %+v",
+					shard.ID, sc.consumerID, err)
+				return err
+			}
+		}
+
 		if err != nil {
 			if awsErr, ok := err.(awserr.Error); ok {
 				if awsErr.Code() == kinesis.ErrCodeProvisionedThroughputExceededException || awsErr.Code() == ErrCodeKMSThrottlingException {
