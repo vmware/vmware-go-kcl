@@ -29,10 +29,11 @@ package checkpoint
 
 import (
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -85,7 +86,7 @@ func TestGetLeaseNotAquired(t *testing.T) {
 		Checkpoint: "",
 		Mux:        &sync.Mutex{},
 	}, "ijkl-mnop")
-	if err == nil || err.Error() != ErrLeaseNotAcquired {
+	if err == nil || !errors.As(err, &ErrLeaseNotAcquired{}) {
 		t.Errorf("Got a lease when it was already held by abcd-efgh: %s", err)
 	}
 }
