@@ -29,6 +29,8 @@ package checkpoint
 
 import (
 	"errors"
+	"fmt"
+
 	par "github.com/vmware/vmware-go-kcl/clientlibrary/partition"
 )
 
@@ -41,10 +43,15 @@ const (
 
 	// We've completely processed all records in this shard.
 	ShardEnd = "SHARD_END"
-
-	// ErrLeaseNotAcquired is returned when we failed to get a lock on the shard
-	ErrLeaseNotAcquired = "lease is already held by another node"
 )
+
+type ErrLeaseNotAcquired struct {
+	cause string
+}
+
+func (e ErrLeaseNotAcquired) Error() string {
+	return fmt.Sprintf("lease not acquired: %s", e.cause)
+}
 
 // Checkpointer handles checkpointing when a record has been processed
 type Checkpointer interface {

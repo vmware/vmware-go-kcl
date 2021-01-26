@@ -28,6 +28,7 @@
 package worker
 
 import (
+	"errors"
 	"math/rand"
 	"sync"
 	"time"
@@ -277,7 +278,7 @@ func (w *Worker) eventLoop() {
 				err = w.checkpointer.GetLease(shard, w.workerID)
 				if err != nil {
 					// cannot get lease on the shard
-					if err.Error() != chk.ErrLeaseNotAcquired {
+					if !errors.As(err, &chk.ErrLeaseNotAcquired{}) {
 						log.Errorf("Cannot get lease: %+v", err)
 					}
 					continue
