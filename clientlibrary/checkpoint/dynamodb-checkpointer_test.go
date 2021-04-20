@@ -33,12 +33,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
+	"github.com/stretchr/testify/assert"
 
 	cfg "github.com/vmware/vmware-go-kcl/clientlibrary/config"
 	par "github.com/vmware/vmware-go-kcl/clientlibrary/partition"
@@ -75,7 +74,7 @@ func TestGetLeaseNotAquired(t *testing.T) {
 	err := checkpoint.GetLease(&par.ShardStatus{
 		ID:         "0001",
 		Checkpoint: "",
-		Mux:        &sync.Mutex{},
+		Mux:        &sync.RWMutex{},
 	}, "abcd-efgh")
 	if err != nil {
 		t.Errorf("Error getting lease %s", err)
@@ -84,7 +83,7 @@ func TestGetLeaseNotAquired(t *testing.T) {
 	err = checkpoint.GetLease(&par.ShardStatus{
 		ID:         "0001",
 		Checkpoint: "",
-		Mux:        &sync.Mutex{},
+		Mux:        &sync.RWMutex{},
 	}, "ijkl-mnop")
 	if err == nil || !errors.As(err, &ErrLeaseNotAcquired{}) {
 		t.Errorf("Got a lease when it was already held by abcd-efgh: %s", err)
@@ -124,7 +123,7 @@ func TestGetLeaseAquired(t *testing.T) {
 	shard := &par.ShardStatus{
 		ID:         "0001",
 		Checkpoint: "deadbeef",
-		Mux:        &sync.Mutex{},
+		Mux:        &sync.RWMutex{},
 	}
 	err := checkpoint.GetLease(shard, "ijkl-mnop")
 
@@ -145,7 +144,7 @@ func TestGetLeaseAquired(t *testing.T) {
 
 	status := &par.ShardStatus{
 		ID:  shard.ID,
-		Mux: &sync.Mutex{},
+		Mux: &sync.RWMutex{},
 	}
 	checkpoint.FetchCheckpoint(status)
 

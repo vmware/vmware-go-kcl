@@ -144,7 +144,7 @@ func (checkpointer *DynamoCheckpoint) GetLease(shard *par.ShardStatus, newAssign
 			return ErrLeaseNotAcquired{"current lease timeout not yet expired"}
 		}
 
-		checkpointer.log.Debugf("Attempting to get a lock for shard: %s, leaseTimeout: %s, assignedTo: %s", shard.ID, currentLeaseTimeout, assignedTo)
+		checkpointer.log.Debugf("Attempting to get a lock for shard: %s, leaseTimeout: %s, assignedTo: %s, newAssignedTo: %s", shard.ID, currentLeaseTimeout, assignedTo, newAssignTo)
 		conditionalExpression = "ShardID = :id AND AssignedTo = :assigned_to AND LeaseTimeout = :lease_timeout"
 		expressionAttributeValues = map[string]*dynamodb.AttributeValue{
 			":id": {
@@ -175,9 +175,9 @@ func (checkpointer *DynamoCheckpoint) GetLease(shard *par.ShardStatus, newAssign
 		marshalledCheckpoint[ParentShardIdKey] = &dynamodb.AttributeValue{S: aws.String(shard.ParentShardId)}
 	}
 
-	if shard.Checkpoint != "" {
+	if shard.GetCheckpoint() != "" {
 		marshalledCheckpoint[SequenceNumberKey] = &dynamodb.AttributeValue{
-			S: aws.String(shard.Checkpoint),
+			S: aws.String(shard.GetCheckpoint()),
 		}
 	}
 
@@ -207,7 +207,7 @@ func (checkpointer *DynamoCheckpoint) CheckpointSequence(shard *par.ShardStatus)
 			S: aws.String(shard.ID),
 		},
 		SequenceNumberKey: {
-			S: aws.String(shard.Checkpoint),
+			S: aws.String(shard.GetCheckpoint()),
 		},
 		LeaseOwnerKey: {
 			S: aws.String(shard.AssignedTo),
@@ -236,12 +236,10 @@ func (checkpointer *DynamoCheckpoint) FetchCheckpoint(shard *par.ShardStatus) er
 		return ErrSequenceIDNotFound
 	}
 	checkpointer.log.Debugf("Retrieved Shard Iterator %s", *sequenceID.S)
-	shard.Mux.Lock()
-	defer shard.Mux.Unlock()
-	shard.Checkpoint = aws.StringValue(sequenceID.S)
+	shard.SetCheckpoint(aws.StringValue(sequenceID.S))
 
 	if assignedTo, ok := checkpoint[LeaseOwnerKey]; ok {
-		shard.AssignedTo = aws.StringValue(assignedTo.S)
+		shard.SetLeaseOwner(aws.StringValue(assignedTo.S))
 	}
 	return nil
 }

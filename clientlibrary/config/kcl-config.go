@@ -37,9 +37,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
-
 	"github.com/aws/aws-sdk-go/aws/credentials"
+
+	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
 	"github.com/vmware/vmware-go-kcl/logger"
 )
@@ -210,5 +210,25 @@ func (c *KinesisClientLibConfiguration) WithMonitoringService(mService metrics.M
 	// Nil case is handled downward (at worker creation) so no need to do it here.
 	// Plus the user might want to be explicit about passing a nil monitoring service here.
 	c.MonitoringService = mService
+	return c
+}
+
+// WithEnhancedFanOutConsumer enables enhanced fan-out consumer with the specified name
+// For more info see: https://docs.aws.amazon.com/streams/latest/dev/enhanced-consumers.html
+// Note: You can register up to twenty consumers per stream to use enhanced fan-out.
+func (c *KinesisClientLibConfiguration) WithEnhancedFanOutConsumer(consumerName string) *KinesisClientLibConfiguration {
+	checkIsValueNotEmpty("EnhancedFanOutConsumerName", consumerName)
+	c.EnhancedFanOutConsumerName = consumerName
+	c.EnableEnhancedFanOutConsumer = true
+	return c
+}
+
+// WithEnhancedFanOutConsumerARN enables enhanced fan-out consumer with the specified consumer ARN
+// For more info see: https://docs.aws.amazon.com/streams/latest/dev/enhanced-consumers.html
+// Note: You can register up to twenty consumers per stream to use enhanced fan-out.
+func (c *KinesisClientLibConfiguration) WithEnhancedFanOutConsumerARN(consumerARN string) *KinesisClientLibConfiguration {
+	checkIsValueNotEmpty("EnhancedFanOutConsumerARN", consumerARN)
+	c.EnhancedFanOutConsumerARN = consumerARN
+	c.EnableEnhancedFanOutConsumer = true
 	return c
 }

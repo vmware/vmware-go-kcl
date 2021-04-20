@@ -41,6 +41,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	creds "github.com/aws/aws-sdk-go/aws/credentials"
+
 	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
 	"github.com/vmware/vmware-go-kcl/logger"
 )
@@ -169,6 +170,17 @@ type (
 		// StreamName is the name of Kinesis stream
 		StreamName string
 
+		// EnableEnhancedFanOutConsumer enables enhanced fan-out consumer
+		// See: https://docs.aws.amazon.com/streams/latest/dev/enhanced-consumers.html
+		// Either consumer name or consumer ARN must be specified when Enhanced Fan-Out is enabled.
+		EnableEnhancedFanOutConsumer bool
+
+		// EnhancedFanOutConsumerName is the name of Kinesis Enhanced Fan-Out consumer.
+		EnhancedFanOutConsumerName string
+
+		// EnhancedFanOutConsumerARN is the ARN of Kinesis Enhanced Fan-Out consumer.
+		EnhancedFanOutConsumerARN string
+
 		// WorkerID used to distinguish different workers/processes of a Kinesis application
 		WorkerID string
 
@@ -262,18 +274,18 @@ func empty(s string) bool {
 	return len(strings.TrimSpace(s)) == 0
 }
 
-// checkIsValuePositive make sure the value is possitive.
+// checkIsValueNotEmpty makes sure the value is not empty.
 func checkIsValueNotEmpty(key string, value string) {
 	if empty(value) {
 		// There is no point to continue for incorrect configuration. Fail fast!
-		log.Panicf("Non-empty value exepected for %v, actual: %v", key, value)
+		log.Panicf("Non-empty value expected for %v, actual: %v", key, value)
 	}
 }
 
-// checkIsValuePositive make sure the value is possitive.
+// checkIsValuePositive makes sure the value is possitive.
 func checkIsValuePositive(key string, value int) {
 	if value <= 0 {
 		// There is no point to continue for incorrect configuration. Fail fast!
-		log.Panicf("Positive value exepected for %v, actual: %v", key, value)
+		log.Panicf("Positive value expected for %v, actual: %v", key, value)
 	}
 }
