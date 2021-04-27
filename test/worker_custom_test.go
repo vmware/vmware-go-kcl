@@ -27,10 +27,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/kinesis"
-
 	log "github.com/sirupsen/logrus"
-
 	"github.com/stretchr/testify/assert"
+
 	chk "github.com/vmware/vmware-go-kcl/clientlibrary/checkpoint"
 	cfg "github.com/vmware/vmware-go-kcl/clientlibrary/config"
 	par "github.com/vmware/vmware-go-kcl/clientlibrary/partition"
@@ -74,7 +73,7 @@ func TestWorkerInjectCheckpointer(t *testing.T) {
 	// verify the checkpointer after graceful shutdown
 	status := &par.ShardStatus{
 		ID:  shardID,
-		Mux: &sync.Mutex{},
+		Mux: &sync.RWMutex{},
 	}
 	checkpointer.FetchCheckpoint(status)
 
