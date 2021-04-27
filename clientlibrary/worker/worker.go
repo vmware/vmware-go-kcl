@@ -29,14 +29,11 @@ package worker
 
 import (
 	"errors"
-	"fmt"
-	"math"
 	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/aws/aws-sdk-go/service/kinesis/kinesisiface"
@@ -226,97 +223,32 @@ func (w *Worker) initialize() error {
 	return nil
 }
 
-// fetchConsumerARNWithRetry tries to fetch consumer ARN. Retries 10 times with exponential backoff in case of an error
-func (w *Worker) fetchConsumerARNWithRetry() (string, error) {
-	for retry := 0; ; retry++ {
-		consumerARN, err := w.fetchConsumerARN()
-		if err == nil {
-			return consumerARN, nil
-		}
-		if retry < 10 {
-			sleepDuration := time.Duration(math.Exp2(float64(retry))*100) * time.Millisecond
-			w.kclConfig.Logger.Errorf("Could not get consumer ARN: %v, retrying after: %s", err, sleepDuration)
-			time.Sleep(sleepDuration)
-			continue
-		}
-		return consumerARN, err
+// newShardConsumer creates shard consumer for the specified shard
+func (w *Worker) newShardConsumer(shard *par.ShardStatus) shardConsumer {
+	common := commonShardConsumer{
+		shard:           shard,
+		kc:              w.kc,
+		checkpointer:    w.checkpointer,
+		recordProcessor: w.processorFactory.CreateProcessor(),
+		kclConfig:       w.kclConfig,
+		mService:        w.mService,
 	}
-}
-
-// fetchConsumerARN gets enhanced fan-out consumerARN.
-// Registers enhanced fan-out consumer if the consumer is not found
-func (w *Worker) fetchConsumerARN() (string, error) {
-	log := w.kclConfig.Logger
-	log.Debugf("Fetching stream consumer ARN")
-	streamDescription, err := w.kc.DescribeStream(&kinesis.DescribeStreamInput{
-		StreamName: &w.kclConfig.StreamName,
-	})
-	if err != nil {
-		log.Errorf("Could not describe stream: %v", err)
-		return "", err
-	}
-	streamConsumerDescription, err := w.kc.DescribeStreamConsumer(&kinesis.DescribeStreamConsumerInput{
-		ConsumerName: &w.kclConfig.EnhancedFanOutConsumerName,
-		StreamARN:    streamDescription.StreamDescription.StreamARN,
-	})
-	if err == nil {
-		log.Infof("Enhanced fan-out consumer found, consumer status: %s", *streamConsumerDescription.ConsumerDescription.ConsumerStatus)
-		if *streamConsumerDescription.ConsumerDescription.ConsumerStatus != kinesis.ConsumerStatusActive {
-			return "", fmt.Errorf("consumer is not in active status yet, current status: %s", *streamConsumerDescription.ConsumerDescription.ConsumerStatus)
+	if w.kclConfig.EnableEnhancedFanOutConsumer {
+		w.kclConfig.Logger.Infof("Start enhanced fan-out shard consumer for shard: %v", shard.ID)
+		return &FanOutShardConsumer{
+			commonShardConsumer: common,
+			consumerARN:         w.consumerARN,
+			consumerID:          w.workerID,
+			stop:                w.stop,
 		}
-		return *streamConsumerDescription.ConsumerDescription.ConsumerARN, nil
 	}
-	if awsErrCode(err) == kinesis.ErrCodeResourceNotFoundException {
-		log.Infof("Enhanced fan-out consumer not found, registering new consumer with name: %s", w.kclConfig.EnhancedFanOutConsumerName)
-		out, err := w.kc.RegisterStreamConsumer(&kinesis.RegisterStreamConsumerInput{
-			ConsumerName: &w.kclConfig.EnhancedFanOutConsumerName,
-			StreamARN:    streamDescription.StreamDescription.StreamARN,
-		})
-		if err != nil {
-			log.Errorf("Could not register enhanced fan-out consumer: %v", err)
-			return "", err
-		}
-		if *out.Consumer.ConsumerStatus != kinesis.ConsumerStatusActive {
-			return "", fmt.Errorf("consumer is not in active status yet, current status: %s", *out.Consumer.ConsumerStatus)
-		}
-		return *out.Consumer.ConsumerARN, nil
-	}
-	log.Errorf("Could not describe stream consumer: %v", err)
-	return "", err
-}
-
-// newShardConsumer to create a shard consumer instance
-func (w *Worker) newShardConsumer(shard *par.ShardStatus) *ShardConsumer {
-	return &ShardConsumer{
-		commonShardConsumer: commonShardConsumer{
-			shard:           shard,
-			kc:              w.kc,
-			checkpointer:    w.checkpointer,
-			recordProcessor: w.processorFactory.CreateProcessor(),
-			kclConfig:       w.kclConfig,
-			mService:        w.mService,
-		},
-		streamName: w.streamName,
-		consumerID: w.workerID,
-		stop:       w.stop,
-		mService:   w.mService,
-	}
-}
-
-// newFanOutShardConsumer to create a new fan-out shard consumer instance
-func (w *Worker) newFanOutShardConsumer(shard *par.ShardStatus) *FanOutShardConsumer {
-	return &FanOutShardConsumer{
-		commonShardConsumer: commonShardConsumer{
-			shard:           shard,
-			kc:              w.kc,
-			checkpointer:    w.checkpointer,
-			recordProcessor: w.processorFactory.CreateProcessor(),
-			kclConfig:       w.kclConfig,
-			mService:        w.mService,
-		},
-		consumerARN: w.consumerARN,
-		consumerID:  w.workerID,
-		stop:        w.stop,
+	w.kclConfig.Logger.Infof("Start polling shard consumer for shard: %v", shard.ID)
+	return &PollingShardConsumer{
+		commonShardConsumer: common,
+		streamName:          w.streamName,
+		consumerID:          w.workerID,
+		stop:                w.stop,
+		mService:            w.mService,
 	}
 }
 
@@ -386,21 +318,13 @@ func (w *Worker) eventLoop() {
 
 				// log metrics on got lease
 				w.mService.LeaseGained(shard.ID)
-				var shardConsumer interface{ getRecords() error }
-				if w.kclConfig.EnableEnhancedFanOutConsumer {
-					log.Infof("Start enhanced fan-out shard consumer for shard: %v", shard.ID)
-					shardConsumer = w.newFanOutShardConsumer(shard)
-				} else {
-					log.Infof("Start shard consumer for shard: %v", shard.ID)
-					shardConsumer = w.newShardConsumer(shard)
-				}
 				w.waitGroup.Add(1)
-				go func() {
+				go func(shard *par.ShardStatus) {
 					defer w.waitGroup.Done()
-					if err := shardConsumer.getRecords(); err != nil {
+					if err := w.newShardConsumer(shard).getRecords(); err != nil {
 						log.Errorf("Error in getRecords: %+v", err)
 					}
-				}()
+				}(shard)
 				// exit from for loop and not to grab more shard for now.
 				break
 			}
@@ -488,12 +412,4 @@ func (w *Worker) syncShard() error {
 	}
 
 	return nil
-}
-
-func awsErrCode(err error) string {
-	awsErr, _ := err.(awserr.Error)
-	if awsErr != nil {
-		return awsErr.Code()
-	}
-	return ""
 }

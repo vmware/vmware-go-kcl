@@ -38,11 +38,12 @@ import (
 	chk "github.com/vmware/vmware-go-kcl/clientlibrary/checkpoint"
 	kcl "github.com/vmware/vmware-go-kcl/clientlibrary/interfaces"
 	"github.com/vmware/vmware-go-kcl/clientlibrary/metrics"
+	"github.com/vmware/vmware-go-kcl/clientlibrary/utils"
 )
 
-// ShardConsumer is responsible for consuming data records of a (specified) shard.
-// Note: ShardConsumer only deal with one shard.
-type ShardConsumer struct {
+// PollingShardConsumer is responsible for polling data records from a (specified) shard.
+// Note: PollingShardConsumer only deal with one shard.
+type PollingShardConsumer struct {
 	commonShardConsumer
 	streamName string
 	stop       *chan struct{}
@@ -50,7 +51,7 @@ type ShardConsumer struct {
 	mService   metrics.MonitoringService
 }
 
-func (sc *ShardConsumer) getShardIterator() (*string, error) {
+func (sc *PollingShardConsumer) getShardIterator() (*string, error) {
 	startPosition, err := sc.getStartingPosition()
 	if err != nil {
 		return nil, err
@@ -71,7 +72,7 @@ func (sc *ShardConsumer) getShardIterator() (*string, error) {
 
 // getRecords continously poll one shard for data record
 // Precondition: it currently has the lease on the shard.
-func (sc *ShardConsumer) getRecords() error {
+func (sc *PollingShardConsumer) getRecords() error {
 	defer sc.releaseLease()
 
 	log := sc.kclConfig.Logger
@@ -127,7 +128,7 @@ func (sc *ShardConsumer) getRecords() error {
 		// Get records from stream and retry as needed
 		getResp, err := sc.kc.GetRecords(getRecordsArgs)
 		if err != nil {
-			if awsErrCode(err) == kinesis.ErrCodeProvisionedThroughputExceededException || awsErrCode(err) == kinesis.ErrCodeKMSThrottlingException {
+			if utils.AWSErrCode(err) == kinesis.ErrCodeProvisionedThroughputExceededException || utils.AWSErrCode(err) == kinesis.ErrCodeKMSThrottlingException {
 				log.Errorf("Error getting records from shard %v: %+v", sc.shard.ID, err)
 				retriedErrors++
 				// exponential backoff

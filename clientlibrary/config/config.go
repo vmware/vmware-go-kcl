@@ -175,10 +175,10 @@ type (
 		// Either consumer name or consumer ARN must be specified when Enhanced Fan-Out is enabled.
 		EnableEnhancedFanOutConsumer bool
 
-		// EnhancedFanOutConsumerName is the name of Kinesis Enhanced Fan-Out consumer.
+		// EnhancedFanOutConsumerName is the name of the enhanced fan-out consumer to create.
 		EnhancedFanOutConsumerName string
 
-		// EnhancedFanOutConsumerARN is the ARN of Kinesis Enhanced Fan-Out consumer.
+		// EnhancedFanOutConsumerARN is the ARN of an already created enhanced fan-out consumer, if this is set no automatic consumer creation will be attempted
 		EnhancedFanOutConsumerARN string
 
 		// WorkerID used to distinguish different workers/processes of a Kinesis application
@@ -187,7 +187,7 @@ type (
 		// InitialPositionInStream specifies the Position in the stream where a new application should start from
 		InitialPositionInStream InitialPositionInStream
 
-		// InitialPositionInStreamExtended provides actual AT_TMESTAMP value
+		// InitialPositionInStreamExtended provides actual AT_TIMESTAMP value
 		InitialPositionInStreamExtended InitialPositionInStreamExtended
 
 		// credentials to access Kinesis/Dynamo: https://docs.aws.amazon.com/sdk-for-go/api/aws/credentials/
