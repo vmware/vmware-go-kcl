@@ -34,7 +34,7 @@ func TestConfig(t *testing.T) {
 		WithIdleTimeBetweenReadsInMillis(20).
 		WithCallProcessRecordsEvenForEmptyRecordList(true).
 		WithTaskBackoffTimeMillis(10).
-		WithEnhancedFanOutConsumer("fan-out-consumer")
+		WithEnhancedFanOutConsumerName("fan-out-consumer")
 
 	assert.Equal(t, "appName", kclConfig.ApplicationName)
 	assert.Equal(t, 500, kclConfig.FailoverTimeMillis)
@@ -47,9 +47,17 @@ func TestConfig(t *testing.T) {
 	contextLogger.Infof("Default logger is awesome")
 }
 
+func TestConfigDefaultEnhancedFanOutConsumerName(t *testing.T) {
+	kclConfig := NewKinesisClientLibConfig("appName", "StreamName", "us-west-2", "workerId")
+
+	assert.Equal(t, "appName", kclConfig.ApplicationName)
+	assert.False(t, kclConfig.EnableEnhancedFanOutConsumer)
+	assert.Equal(t, "appName", kclConfig.EnhancedFanOutConsumerName)
+}
+
 func TestEmptyEnhancedFanOutConsumerName(t *testing.T) {
 	assert.PanicsWithValue(t, "Non-empty value expected for EnhancedFanOutConsumerName, actual: ", func() {
-		NewKinesisClientLibConfig("app", "stream", "us-west-2", "worker").WithEnhancedFanOutConsumer("")
+		NewKinesisClientLibConfig("app", "stream", "us-west-2", "worker").WithEnhancedFanOutConsumerName("")
 	})
 }
 

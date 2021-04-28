@@ -73,6 +73,7 @@ func NewKinesisClientLibConfigWithCredentials(applicationName, streamName, regio
 		KinesisCredentials:                               kiniesisCreds,
 		DynamoDBCredentials:                              dynamodbCreds,
 		TableName:                                        applicationName,
+		EnhancedFanOutConsumerName:                       applicationName,
 		StreamName:                                       streamName,
 		RegionName:                                       regionName,
 		WorkerID:                                         workerID,
@@ -213,10 +214,18 @@ func (c *KinesisClientLibConfiguration) WithMonitoringService(mService metrics.M
 	return c
 }
 
-// WithEnhancedFanOutConsumer enables enhanced fan-out consumer with the specified name
+// WithEnhancedFanOutConsumer sets EnableEnhancedFanOutConsumer. If enhanced fan-out is enabled and ConsumerName is not specified ApplicationName is used as ConsumerName.
 // For more info see: https://docs.aws.amazon.com/streams/latest/dev/enhanced-consumers.html
 // Note: You can register up to twenty consumers per stream to use enhanced fan-out.
-func (c *KinesisClientLibConfiguration) WithEnhancedFanOutConsumer(consumerName string) *KinesisClientLibConfiguration {
+func (c *KinesisClientLibConfiguration) WithEnhancedFanOutConsumer(enable bool) *KinesisClientLibConfiguration {
+	c.EnableEnhancedFanOutConsumer = enable
+	return c
+}
+
+// WithEnhancedFanOutConsumerName enables enhanced fan-out consumer with the specified name
+// For more info see: https://docs.aws.amazon.com/streams/latest/dev/enhanced-consumers.html
+// Note: You can register up to twenty consumers per stream to use enhanced fan-out.
+func (c *KinesisClientLibConfiguration) WithEnhancedFanOutConsumerName(consumerName string) *KinesisClientLibConfiguration {
 	checkIsValueNotEmpty("EnhancedFanOutConsumerName", consumerName)
 	c.EnhancedFanOutConsumerName = consumerName
 	c.EnableEnhancedFanOutConsumer = true
