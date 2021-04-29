@@ -175,7 +175,7 @@ type (
 		// Either consumer name or consumer ARN must be specified when Enhanced Fan-Out is enabled.
 		EnableEnhancedFanOutConsumer bool
 
-		// EnhancedFanOutConsumerName is the name of the enhanced fan-out consumer to create.
+		// EnhancedFanOutConsumerName is the name of the enhanced fan-out consumer to create. If this isn't set the ApplicationName will be used.
 		EnhancedFanOutConsumerName string
 
 		// EnhancedFanOutConsumerARN is the ARN of an already created enhanced fan-out consumer, if this is set no automatic consumer creation will be attempted

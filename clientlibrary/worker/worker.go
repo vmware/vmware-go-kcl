@@ -184,19 +184,14 @@ func (w *Worker) initialize() error {
 
 	if w.kclConfig.EnableEnhancedFanOutConsumer {
 		log.Debugf("Enhanced fan-out is enabled")
-		switch {
-		case w.kclConfig.EnhancedFanOutConsumerARN != "":
-			w.consumerARN = w.kclConfig.EnhancedFanOutConsumerARN
-		case w.kclConfig.EnhancedFanOutConsumerName != "":
+		w.consumerARN = w.kclConfig.EnhancedFanOutConsumerARN
+		if w.consumerARN == "" {
 			var err error
 			w.consumerARN, err = w.fetchConsumerARNWithRetry()
 			if err != nil {
 				log.Errorf("Failed to fetch consumer ARN for: %s, %v", w.kclConfig.EnhancedFanOutConsumerName, err)
 				return err
 			}
-		default:
-			log.Errorf("Consumer Name or ARN were not specified with enhanced fan-out enabled")
-			return errors.New("Consumer Name or ARN must be specified when enhanced fan-out is enabled")
 		}
 	}
 
