@@ -8,8 +8,8 @@ targets:
   rebuild-toolchain:
     description: build toolchain image
     watches:
-      - support/docker/toolchain
-    build: support/docker/toolchain
+      - support/toolchain/docker
+    build: support/toolchain/docker
 
   toolchain:
     description: placeholder for additional toolchain dependencies

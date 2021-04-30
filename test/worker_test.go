@@ -60,7 +60,7 @@ func TestWorker(t *testing.T) {
 	// In order to have precise control over logging. Use logger with config
 	config := logger.Configuration{
 		EnableConsole:     true,
-		ConsoleLevel:      logger.Debug,
+		ConsoleLevel:      logger.Error,
 		ConsoleJSONFormat: false,
 		EnableFile:        true,
 		FileLevel:         logger.Info,
@@ -269,8 +269,13 @@ func runTest(kclConfig *cfg.KinesisClientLibConfiguration, triggersig bool, t *t
 	// configure cloudwatch as metrics system
 	kclConfig.WithMonitoringService(getMetricsConfig(kclConfig, metricsSystem))
 
-	worker := wk.NewWorker(recordProcessorFactory(t), kclConfig)
+	// Put some data into stream.
+	kc := NewKinesisClient(t, regionName, kclConfig.KinesisEndpoint, kclConfig.KinesisCredentials)
+	// publishSomeData(t, kc)
+	stop := continuouslyPublishSomeData(t, kc)
+	defer stop()
 
+	worker := wk.NewWorker(recordProcessorFactory(t), kclConfig)
 	err := worker.Start()
 	assert.Nil(t, err)
 
@@ -286,10 +291,6 @@ func runTest(kclConfig *cfg.KinesisClientLibConfiguration, triggersig bool, t *t
 		//os.Exit(0)
 	}()
 
-	// Put some data into stream.
-	kc := NewKinesisClient(t, regionName, kclConfig.KinesisEndpoint, kclConfig.KinesisCredentials)
-	publishSomeData(t, kc)
-
 	if triggersig {
 		t.Log("Trigger signal SIGINT")
 		p, _ := os.FindProcess(os.Getpid())
@@ -297,7 +298,7 @@ func runTest(kclConfig *cfg.KinesisClientLibConfiguration, triggersig bool, t *t
 	}
 
 	// wait a few seconds before shutdown processing
-	time.Sleep(10 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	if metricsSystem == "prometheus" {
 		res, err := http.Get("http://localhost:8080/metrics")

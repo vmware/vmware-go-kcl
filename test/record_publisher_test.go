@@ -21,9 +21,13 @@ package test
 import (
 	"crypto/md5"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/aws/aws-sdk-go/service/kinesis/kinesisiface"
 	rec "github.com/awslabs/kinesis-aggregation/go/records"
@@ -50,12 +54,79 @@ func NewKinesisClient(t *testing.T, regionName, endpoint string, credentials *cr
 	return kinesis.New(s)
 }
 
+// NewDynamoDBClient to create a Kinesis Client.
+func NewDynamoDBClient(t *testing.T, regionName, endpoint string, credentials *credentials.Credentials) *dynamodb.DynamoDB {
+	s, err := session.NewSession(&aws.Config{
+		Region:      aws.String(regionName),
+		Endpoint:    aws.String(endpoint),
+		Credentials: credentials,
+	})
+
+	if err != nil {
+		// no need to move forward
+		t.Fatalf("Failed in getting DynamoDB session for creating Worker: %+v", err)
+	}
+	return dynamodb.New(s)
+}
+
+func continuouslyPublishSomeData(t *testing.T, kc kinesisiface.KinesisAPI) func() {
+	shards := []*kinesis.Shard{}
+	var nextToken *string
+	for {
+		out, err := kc.ListShards(&kinesis.ListShardsInput{
+			StreamName: aws.String(streamName),
+			NextToken:  nextToken,
+		})
+		if err != nil {
+			t.Errorf("Error in ListShards. %+v", err)
+		}
+
+		shards = append(shards, out.Shards...)
+		if out.NextToken == nil {
+			break
+		}
+		nextToken = out.NextToken
+	}
+
+	done := make(chan int)
+	wg := &sync.WaitGroup{}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ticker := time.NewTicker(500 * time.Millisecond)
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				publishToAllShards(t, kc, shards)
+				publishSomeData(t, kc)
+			}
+		}
+	}()
+
+	return func() {
+		close(done)
+		wg.Wait()
+	}
+}
+
+func publishToAllShards(t *testing.T, kc kinesisiface.KinesisAPI, shards []*kinesis.Shard) {
+	// Put records to all shards
+	for i := 0; i < 10; i++ {
+		for _, shard := range shards {
+			publishRecord(t, kc, shard.HashKeyRange.StartingHashKey)
+		}
+	}
+}
+
 // publishSomeData to put some records into Kinesis stream
 func publishSomeData(t *testing.T, kc kinesisiface.KinesisAPI) {
 	// Put some data into stream.
 	t.Log("Putting data into stream using PutRecord API...")
 	for i := 0; i < 50; i++ {
-		publishRecord(t, kc)
+		publishRecord(t, kc, nil)
 	}
 	t.Log("Done putting data into stream using PutRecord API.")
 
@@ -75,13 +146,17 @@ func publishSomeData(t *testing.T, kc kinesisiface.KinesisAPI) {
 }
 
 // publishRecord to put a record into Kinesis stream using PutRecord API.
-func publishRecord(t *testing.T, kc kinesisiface.KinesisAPI) {
-	// Use random string as partition key to ensure even distribution across shards
-	_, err := kc.PutRecord(&kinesis.PutRecordInput{
+func publishRecord(t *testing.T, kc kinesisiface.KinesisAPI, hashKey *string) {
+	input := &kinesis.PutRecordInput{
 		Data:         []byte(specstr),
 		StreamName:   aws.String(streamName),
 		PartitionKey: aws.String(utils.RandStringBytesMaskImpr(10)),
-	})
+	}
+	if hashKey != nil {
+		input.ExplicitHashKey = hashKey
+	}
+	// Use random string as partition key to ensure even distribution across shards
+	_, err := kc.PutRecord(input)
 
 	if err != nil {
 		t.Errorf("Error in PutRecord. %+v", err)
@@ -94,10 +169,11 @@ func publishRecords(t *testing.T, kc kinesisiface.KinesisAPI) {
 	records := make([]*kinesis.PutRecordsRequestEntry, 5)
 
 	for i := 0; i < 5; i++ {
-		records[i] = &kinesis.PutRecordsRequestEntry{
+		record := &kinesis.PutRecordsRequestEntry{
 			Data:         []byte(specstr),
 			PartitionKey: aws.String(utils.RandStringBytesMaskImpr(10)),
 		}
+		records[i] = record
 	}
 
 	_, err := kc.PutRecords(&kinesis.PutRecordsInput{
