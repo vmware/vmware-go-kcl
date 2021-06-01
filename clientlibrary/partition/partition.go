@@ -30,6 +30,8 @@ package worker
 import (
 	"sync"
 	"time"
+
+	"github.com/vmware/vmware-go-kcl/clientlibrary/config"
 )
 
 type ShardStatus struct {
@@ -43,6 +45,7 @@ type ShardStatus struct {
 	StartingSequenceNumber string
 	// child shard doesn't have end sequence number
 	EndingSequenceNumber string
+	ClaimRequest         string
 }
 
 func (ss *ShardStatus) GetLeaseOwner() string {
@@ -67,4 +70,25 @@ func (ss *ShardStatus) SetCheckpoint(c string) {
 	ss.Mux.Lock()
 	defer ss.Mux.Unlock()
 	ss.Checkpoint = c
+}
+
+func (ss *ShardStatus) GetLeaseTimeout() time.Time {
+	ss.Mux.Lock()
+	defer ss.Mux.Unlock()
+	return ss.LeaseTimeout
+}
+
+func (ss *ShardStatus) SetLeaseTimeout(timeout time.Time) {
+	ss.Mux.Lock()
+	defer ss.Mux.Unlock()
+	ss.LeaseTimeout = timeout
+}
+
+func (ss *ShardStatus) IsClaimRequestExpired(kclConfig *config.KinesisClientLibConfiguration) bool {
+	if leaseTimeout := ss.GetLeaseTimeout(); leaseTimeout.IsZero() {
+		return false
+	} else {
+		return leaseTimeout.
+			Before(time.Now().UTC().Add(time.Duration(-kclConfig.LeaseStealingClaimTimeoutMillis) * time.Millisecond))
+	}
 }

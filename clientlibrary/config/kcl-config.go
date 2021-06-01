@@ -95,7 +95,11 @@ func NewKinesisClientLibConfigWithCredentials(applicationName, streamName, regio
 		InitialLeaseTableReadCapacity:                    DefaultInitialLeaseTableReadCapacity,
 		InitialLeaseTableWriteCapacity:                   DefaultInitialLeaseTableWriteCapacity,
 		SkipShardSyncAtWorkerInitializationIfLeasesExist: DefaultSkipShardSyncAtStartupIfLeasesExist,
-		Logger: logger.GetDefaultLogger(),
+		EnableLeaseStealing:                              DefaultEnableLeaseStealing,
+		LeaseStealingIntervalMillis:                      DefaultLeaseStealingIntervalMillis,
+		LeaseStealingClaimTimeoutMillis:                  DefaultLeaseStealingClaimTimeoutMillis,
+		LeaseSyncingTimeIntervalMillis:                   DefaultLeaseSyncingIntervalMillis,
+		Logger:                                           logger.GetDefaultLogger(),
 	}
 }
 
@@ -239,5 +243,20 @@ func (c *KinesisClientLibConfiguration) WithEnhancedFanOutConsumerARN(consumerAR
 	checkIsValueNotEmpty("EnhancedFanOutConsumerARN", consumerARN)
 	c.EnhancedFanOutConsumerARN = consumerARN
 	c.EnableEnhancedFanOutConsumer = true
+	return c
+}
+
+func (c *KinesisClientLibConfiguration) WithLeaseStealing(enableLeaseStealing bool) *KinesisClientLibConfiguration {
+	c.EnableLeaseStealing = enableLeaseStealing
+	return c
+}
+
+func (c *KinesisClientLibConfiguration) WithLeaseStealingIntervalMillis(leaseStealingIntervalMillis int) *KinesisClientLibConfiguration {
+	c.LeaseStealingIntervalMillis = leaseStealingIntervalMillis
+	return c
+}
+
+func (c *KinesisClientLibConfiguration) WithLeaseSyncingIntervalMillis(leaseSyncingIntervalMillis int) *KinesisClientLibConfiguration {
+	c.LeaseSyncingTimeIntervalMillis = leaseSyncingIntervalMillis
 	return c
 }

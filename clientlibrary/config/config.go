@@ -122,6 +122,18 @@ const (
 
 	// The amount of milliseconds to wait before graceful shutdown forcefully terminates.
 	DefaultShutdownGraceMillis = 5000
+
+	// Lease stealing defaults to false for backwards compatibility.
+	DefaultEnableLeaseStealing = false
+
+	// Interval between rebalance tasks defaults to 5 seconds.
+	DefaultLeaseStealingIntervalMillis = 5000
+
+	// Number of milliseconds to wait before another worker can aquire a claimed shard
+	DefaultLeaseStealingClaimTimeoutMillis = 120000
+
+	// Number of milliseconds to wait before syncing with lease table (dynamodDB)
+	DefaultLeaseSyncingIntervalMillis = 60000
 )
 
 type (
@@ -257,6 +269,18 @@ type (
 
 		// MonitoringService publishes per worker-scoped metrics.
 		MonitoringService metrics.MonitoringService
+
+		// EnableLeaseStealing turns on lease stealing
+		EnableLeaseStealing bool
+
+		// LeaseStealingIntervalMillis The number of milliseconds between rebalance tasks
+		LeaseStealingIntervalMillis int
+
+		// LeaseStealingClaimTimeoutMillis The number of milliseconds to wait before another worker can aquire a claimed shard
+		LeaseStealingClaimTimeoutMillis int
+
+		// LeaseSyncingTimeInterval The number of milliseconds to wait before syncing with lease table (dynamoDB)
+		LeaseSyncingTimeIntervalMillis int
 	}
 )
 

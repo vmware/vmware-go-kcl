@@ -39,8 +39,34 @@ func TestConfig(t *testing.T) {
 	assert.Equal(t, "appName", kclConfig.ApplicationName)
 	assert.Equal(t, 500, kclConfig.FailoverTimeMillis)
 	assert.Equal(t, 10, kclConfig.TaskBackoffTimeMillis)
+
 	assert.True(t, kclConfig.EnableEnhancedFanOutConsumer)
 	assert.Equal(t, "fan-out-consumer", kclConfig.EnhancedFanOutConsumerName)
+
+	assert.Equal(t, false, kclConfig.EnableLeaseStealing)
+	assert.Equal(t, 5000, kclConfig.LeaseStealingIntervalMillis)
+
+	contextLogger := kclConfig.Logger.WithFields(logger.Fields{"key1": "value1"})
+	contextLogger.Debugf("Starting with default logger")
+	contextLogger.Infof("Default logger is awesome")
+}
+
+func TestConfigLeaseStealing(t *testing.T) {
+	kclConfig := NewKinesisClientLibConfig("appName", "StreamName", "us-west-2", "workerId").
+		WithFailoverTimeMillis(500).
+		WithMaxRecords(100).
+		WithInitialPositionInStream(TRIM_HORIZON).
+		WithIdleTimeBetweenReadsInMillis(20).
+		WithCallProcessRecordsEvenForEmptyRecordList(true).
+		WithTaskBackoffTimeMillis(10).
+		WithLeaseStealing(true).
+		WithLeaseStealingIntervalMillis(10000)
+
+	assert.Equal(t, "appName", kclConfig.ApplicationName)
+	assert.Equal(t, 500, kclConfig.FailoverTimeMillis)
+	assert.Equal(t, 10, kclConfig.TaskBackoffTimeMillis)
+	assert.Equal(t, true, kclConfig.EnableLeaseStealing)
+	assert.Equal(t, 10000, kclConfig.LeaseStealingIntervalMillis)
 
 	contextLogger := kclConfig.Logger.WithFields(logger.Fields{"key1": "value1"})
 	contextLogger.Debugf("Starting with default logger")

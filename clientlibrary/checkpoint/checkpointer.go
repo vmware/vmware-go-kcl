@@ -40,9 +40,13 @@ const (
 	LeaseTimeoutKey   = "LeaseTimeout"
 	SequenceNumberKey = "Checkpoint"
 	ParentShardIdKey  = "ParentShardId"
+	ClaimRequestKey   = "ClaimRequest"
 
 	// We've completely processed all records in this shard.
 	ShardEnd = "SHARD_END"
+
+	// ErrShardClaimed is returned when shard is claimed
+	ErrShardClaimed = "Shard is already claimed by another node"
 )
 
 type ErrLeaseNotAcquired struct {
@@ -72,7 +76,17 @@ type Checkpointer interface {
 
 	// RemoveLeaseOwner to remove lease owner for the shard entry to make the shard available for reassignment
 	RemoveLeaseOwner(string) error
+
+	// New Lease Stealing Methods
+	// ListActiveWorkers returns active workers and their shards
+	ListActiveWorkers(map[string]*par.ShardStatus) (map[string][]*par.ShardStatus, error)
+
+	// ClaimShard claims a shard for stealing
+	ClaimShard(*par.ShardStatus, string) error
 }
 
 // ErrSequenceIDNotFound is returned by FetchCheckpoint when no SequenceID is found
 var ErrSequenceIDNotFound = errors.New("SequenceIDNotFoundForShard")
+
+// ErrShardNotAssigned is returned by ListActiveWorkers when no AssignedTo is found
+var ErrShardNotAssigned = errors.New("AssignedToNotFoundForShard")

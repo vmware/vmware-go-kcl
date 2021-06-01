@@ -23,9 +23,10 @@ package test
 import (
 	"github.com/stretchr/testify/assert"
 
+	"testing"
+
 	"github.com/sirupsen/logrus"
 	"go.uber.org/zap"
-	"testing"
 
 	"github.com/vmware/vmware-go-kcl/logger"
 	zaplogger "github.com/vmware/vmware-go-kcl/logger/zap"
