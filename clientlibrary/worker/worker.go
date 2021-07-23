@@ -292,7 +292,7 @@ func (w *Worker) eventLoop() {
 				if err != nil {
 					// checkpoint may not existed yet is not an error condition.
 					if err != chk.ErrSequenceIDNotFound {
-						log.Warnf("Couldn't fetch checkpoint: %s", err)
+						log.Warnf("Couldn't fetch checkpoint: %+v", err)
 						// move on to next shard
 						continue
 					}
