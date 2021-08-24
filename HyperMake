@@ -88,5 +88,5 @@ settings:
   default-targets:
     - test
   docker:
-    image: 'vmware/go-kcl-toolchain:0.1.2'
+    image: 'vmware/go-kcl-toolchain:0.1.3'
     src-volume: /go/src/github.com/vmware/vmware-go-kcl
