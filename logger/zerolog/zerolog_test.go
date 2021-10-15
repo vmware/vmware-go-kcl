@@ -23,10 +23,10 @@ func TestZeroLogLoggerWithConfig(t *testing.T) {
 	contextLogger.Infof("Rs zerolog is awesome")
 }
 
-func TestZapLogger(t *testing.T) {
+func TestZeroLogLogger(t *testing.T) {
 	log := NewZerologLogger()
 
 	contextLogger := log.WithFields(logger.Fields{"key1": "value1"})
-	contextLogger.Debugf("Starting with zap")
-	contextLogger.Infof("Zap is awesome")
+	contextLogger.Debugf("Starting with zerolog")
+	contextLogger.Infof("Zerolog is awesome")
 }
