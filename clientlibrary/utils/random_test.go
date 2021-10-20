@@ -20,7 +20,6 @@ package utils
 
 import (
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 )
@@ -32,17 +31,18 @@ func TestRandom(t *testing.T) {
 		if s1 == s2 {
 			t.Fatalf("failed in generating random string. s1: %s, s2: %s", s1, s2)
 		}
+		fmt.Println(s1)
+		fmt.Println(s2)
 	}
 }
 
 func TestRandomNum(t *testing.T) {
-	rand.Seed(time.Now().UTC().UnixNano())
-
 	for i := 0; i < 10; i++ {
-		s1 := rand.Int63()
-		s2 := rand.Int63()
+		seed := time.Now().UTC().Second()
+		s1 := RandStringBytesMaskImpr(seed)
+		s2 := RandStringBytesMaskImpr(seed)
 		if s1 == s2 {
-			t.Fatalf("failed in generating random string. s1: %d, s2: %d", s1, s2)
+			t.Fatalf("failed in generating random string. s1: %s, s2: %s", s1, s2)
 		}
 		fmt.Println(s1)
 		fmt.Println(s2)
