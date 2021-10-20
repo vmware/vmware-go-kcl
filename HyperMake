@@ -21,7 +21,6 @@ targets:
     watches:
       - go.mod
     cmds:
-      - export GO111MODULE=on
       - go mod download
       - go mod vendor
       - go mod tidy
@@ -88,5 +87,5 @@ settings:
   default-targets:
     - test
   docker:
-    image: 'vmware/go-kcl-toolchain:0.1.3'
+    image: 'vmware/go-kcl-toolchain:0.1.4'
     src-volume: /go/src/github.com/vmware/vmware-go-kcl
