@@ -418,12 +418,12 @@ func (w *Worker) rebalance() error {
 		log.Debugf("We have enough shards, not attempting to steal any. workerID: %s", w.workerID)
 		return nil
 	}
-	maxShards := int(optimalShards)
+
 	var workerSteal string
 	for worker, shards := range workers {
-		if worker != w.workerID && len(shards) > maxShards {
+		if worker != w.workerID && len(shards) > optimalShards {
 			workerSteal = worker
-			maxShards = len(shards)
+			optimalShards = len(shards)
 		}
 	}
 	// Not all shards are allocated so fallback to default shard allocation mechanisms
