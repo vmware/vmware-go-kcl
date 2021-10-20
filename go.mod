@@ -3,12 +3,12 @@ module github.com/vmware/vmware-go-kcl
 go 1.17
 
 require (
-	github.com/aws/aws-sdk-go v1.40.58
+	github.com/aws/aws-sdk-go v1.41.7
 	github.com/awslabs/kinesis-aggregation/go v0.0.0-20210630091500-54e17340d32f
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.3.0
 	github.com/prometheus/client_golang v1.11.0
-	github.com/prometheus/common v0.31.1
+	github.com/prometheus/common v0.32.1
 	github.com/rs/zerolog v1.25.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
