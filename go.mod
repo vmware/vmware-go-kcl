@@ -9,6 +9,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.31.1
+	github.com/rs/zerolog v1.25.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.19.1
