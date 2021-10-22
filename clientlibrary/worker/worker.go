@@ -16,6 +16,8 @@
  * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+
+// Package worker
 // The implementation is derived from https://github.com/patrobinson/gokini
 //
 // Copyright 2018 Patrick robinson
@@ -28,8 +30,9 @@
 package worker
 
 import (
+	"crypto/rand"
 	"errors"
-	"math/rand"
+	"math/big"
 	"sync"
 	"time"
 
@@ -45,11 +48,9 @@ import (
 	par "github.com/vmware/vmware-go-kcl/clientlibrary/partition"
 )
 
-/**
- * Worker is the high level class that Kinesis applications use to start processing data. It initializes and oversees
- * different components (e.g. syncing shard and lease information, tracking shard assignments, and processing data from
- * the shards).
- */
+//Worker is the high level class that Kinesis applications use to start processing data. It initializes and oversees
+//different components (e.g. syncing shard and lease information, tracking shard assignments, and processing data from
+//the shards).
 type Worker struct {
 	streamName  string
 	regionName  string
@@ -66,7 +67,7 @@ type Worker struct {
 	waitGroup *sync.WaitGroup
 	done      bool
 
-	rng *rand.Rand
+	randomSeed int64
 
 	shardStatus          map[string]*par.ShardStatus
 	shardStealInProgress bool
@@ -80,9 +81,6 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 		mService = metrics.NoopMonitoringService{}
 	}
 
-	// Create a pseudo-random number generator and seed it.
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	return &Worker{
 		streamName:       kclConfig.StreamName,
 		regionName:       kclConfig.RegionName,
@@ -91,7 +89,7 @@ func NewWorker(factory kcl.IRecordProcessorFactory, kclConfig *config.KinesisCli
 		kclConfig:        kclConfig,
 		mService:         mService,
 		done:             false,
-		rng:              rng,
+		randomSeed:       time.Now().UTC().UnixNano(),
 	}
 }
 
@@ -108,7 +106,7 @@ func (w *Worker) WithCheckpointer(checker chk.Checkpointer) *Worker {
 	return w
 }
 
-// Run starts consuming data from the stream, and pass it to the application record processors.
+// Start Run starts consuming data from the stream, and pass it to the application record processors.
 func (w *Worker) Start() error {
 	log := w.kclConfig.Logger
 	if err := w.initialize(); err != nil {
@@ -133,7 +131,7 @@ func (w *Worker) Start() error {
 	return nil
 }
 
-// Shutdown signals worker to shutdown. Worker will try initiating shutdown of all record processors.
+// Shutdown signals worker to shut down. Worker will try initiating shutdown of all record processors.
 func (w *Worker) Shutdown() {
 	log := w.kclConfig.Logger
 	log.Infof("Worker shutdown in requested.")
@@ -258,7 +256,8 @@ func (w *Worker) eventLoop() {
 		// starts at the same time, this decreases the probability of them calling
 		// kinesis.DescribeStream at the same time, and hit the hard-limit on aws API calls.
 		// On average the period remains the same so that doesn't affect behavior.
-		shardSyncSleep := w.kclConfig.ShardSyncIntervalMillis/2 + w.rng.Intn(w.kclConfig.ShardSyncIntervalMillis)
+		rnd, _ := rand.Int(rand.Reader, big.NewInt(int64(w.kclConfig.ShardSyncIntervalMillis)))
+		shardSyncSleep := w.kclConfig.ShardSyncIntervalMillis/2 + int(rnd.Int64())
 
 		err := w.syncShard()
 		if err != nil {
@@ -290,7 +289,7 @@ func (w *Worker) eventLoop() {
 
 				err := w.checkpointer.FetchCheckpoint(shard)
 				if err != nil {
-					// checkpoint may not existed yet is not an error condition.
+					// checkpoint may not exist yet is not an error condition.
 					if err != chk.ErrSequenceIDNotFound {
 						log.Warnf("Couldn't fetch checkpoint: %+v", err)
 						// move on to next shard
@@ -371,7 +370,7 @@ func (w *Worker) rebalance() error {
 		return err
 	}
 
-	// Only attempt to steal one shard at at time, to allow for linear convergence
+	// Only attempt to steal one shard at time, to allow for linear convergence
 	if w.shardStealInProgress {
 		shardInfo := make(map[string]bool)
 		err := w.getShardIDs("", shardInfo)
@@ -418,12 +417,12 @@ func (w *Worker) rebalance() error {
 		log.Debugf("We have enough shards, not attempting to steal any. workerID: %s", w.workerID)
 		return nil
 	}
-	maxShards := int(optimalShards)
+
 	var workerSteal string
 	for worker, shards := range workers {
-		if worker != w.workerID && len(shards) > maxShards {
+		if worker != w.workerID && len(shards) > optimalShards {
 			workerSteal = worker
-			maxShards = len(shards)
+			optimalShards = len(shards)
 		}
 	}
 	// Not all shards are allocated so fallback to default shard allocation mechanisms
@@ -434,7 +433,8 @@ func (w *Worker) rebalance() error {
 
 	// Steal a random shard from the worker with the most shards
 	w.shardStealInProgress = true
-	randIndex := rand.Intn(len(workers[workerSteal]))
+	rnd, _ := rand.Int(rand.Reader, big.NewInt(int64(len(workers[workerSteal]))))
+	randIndex := int(rnd.Int64())
 	shardToSteal := workers[workerSteal][randIndex]
 	log.Debugf("Stealing shard %s from %s", shardToSteal, workerSteal)
 

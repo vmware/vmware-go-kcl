@@ -15,3 +15,5 @@
 .vscode
 *_mock_test.go
 filenames
+
+.DS_Store

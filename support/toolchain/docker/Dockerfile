@@ -1,10 +1,8 @@
-FROM golang:1.13
+FROM golang:1.17
 ENV PATH /go/bin:/src/bin:/root/go/bin:/usr/local/go/bin:$PATH
 ENV GOPATH /go:/src
-RUN go get -v github.com/alecthomas/gometalinter && \
-    go get -v golang.org/x/tools/cmd/... && \
-    go get -v github.com/FiloSottile/gvt && \
-    go get github.com/securego/gosec/cmd/gosec/... && \
-    go get github.com/derekparker/delve/cmd/dlv && \
-    gometalinter --install && \
+RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.1 && \
+    go install golang.org/x/tools/cmd/...@latest && \
+    go install github.com/go-delve/delve/cmd/dlv@latest && \
+    curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s v2.8.1 && \
     chmod -R a+rw /go

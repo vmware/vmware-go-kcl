@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 . support/scripts/functions.sh
 
@@ -12,25 +12,23 @@ checkfmt() {
 }
 
 lint() {
-    gometalinter \
-        --exclude=_mock.go \
-        --disable=gotype  \
+    golangci-lint run \
+        --skip-files=_mock.go \
         --disable=golint \
-        --vendor \
-        --skip=test \
+        --skip-dirs=test \
         --fast \
-        --deadline=600s \
-        --severity=golint:error \
-        --errors \
+        --timeout=600s \
+        --verbose \
         $(local_go_pkgs)
 }
 
 scanast() {
     set +e
+    gosec version
     gosec ./... > security.log 2>&1
     set -e
 
-    local issues=$(grep -E "Severity: MEDIUM" security.log | wc -l)
+    local issues="$(grep -E 'Severity: MEDIUM' security.log | wc -l)"
     if [ -n $issues ] && [ $issues -gt 0 ]; then
         echo ""
         echo "Medium Severity Issues:"
@@ -38,8 +36,8 @@ scanast() {
         echo $issues "medium severity issues found."
     fi
 
-    local issues=$(grep -E "Severity: HIGH" security.log | grep -v "vendor")
-    local issues_count=$(grep -E "Severity: HIGH" security.log | grep -v "vendor" | wc -l)
+    local issues="$(grep -E 'Severity: HIGH' security.log | grep -v vendor)"
+    local issues_count="$(grep -E 'Severity: HIGH' security.log | grep -v vendor | wc -l)"
     if [ -n $issues_count ] && [ $issues_count -gt 0 ]; then
         echo ""
         echo "High Severity Issues:"
@@ -50,8 +48,8 @@ scanast() {
         exit 1
     fi
 
-    local issues=$(grep -E "Errors unhandled" security.log | grep -v "vendor" | grep -v "/src/go/src")
-    local issues_count=$(grep -E "Errors unhandled" security.log | grep -v "vendor" | grep -v "/src/go/src" | wc -l)
+    local issues="$(grep -E 'Errors unhandled' security.log | grep -v vendor | grep -v /src/go/src)"
+    local issues_count="$(grep -E 'Errors unhandled' security.log | grep -v vendor | grep -v /src/go/src | wc -l)"
     if [ -n $issues_count ] && [ $issues_count -gt 0 ]; then
         echo ""
         echo "Unhandled errors:"
