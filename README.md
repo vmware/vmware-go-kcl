@@ -1,5 +1,9 @@
 # VMware-Go-KCL
 
+![technology Go](https://img.shields.io/badge/technology-go-blue.svg)
+[![Go Report Card](https://goreportcard.com/badge/github.com/vmware/vmware-go-kcl)](https://goreportcard.com/report/github.com/vmware/vmware-go-kcl)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 ## Overview
 
 [Amazon Kinesis](https://aws.amazon.com/kinesis/data-streams/)  enables real-time processing of streaming data at massive scale. Kinesis Streams is useful for rapidly moving data off data producers and then continuously processing the data, be it to transform the data before emitting to a data store, run real-time metrics and analytics, or derive more complex data streams for further processing.
@@ -8,6 +12,7 @@ The **VMware Kinesis Client Library for GO** (VMware-Go-KCL) enables Go develope
 
 **VMware-Go-KCL** brings Go/Kubernetes community with Go language native implementation of KCL matching **exactly the same** API and functional spec of original [Java KCL v2.0](https://docs.aws.amazon.com/streams/latest/dev/kcl-migration.html) without the resource overhead of installing Java based MultiLangDaemon.
 
+Besides, [vmware-go-kcl-v2](https://github.com/vmware/vmware-go-kcl-v2) is the v2 version of VMWare KCL for the Go programming language by utilizing [AWS Go SDK V2](https://github.com/aws/aws-sdk-go-v2). 
 
 ## Try it out
 
