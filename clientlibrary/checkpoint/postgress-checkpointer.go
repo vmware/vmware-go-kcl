@@ -172,8 +172,11 @@ func (checkpointer *PostgresCheckpoint) ClaimShard(shard *par.ShardStatus, claim
 	}
 	leaseTimeoutString := shard.GetLeaseTimeout().Format(time.RFC3339)
 
+	i := 5
 	// TODO: timestamp condition should check '=' only
-	conditionalExpression := fmt.Sprintf("WHERE shard_id = %s AND lease_timeout >= %s AND not exists (%s)", shard.ID, leaseTimeoutString, shard.ClaimRequest)
+	// TODO what to be done with attribute_not_exists(ClaimRequest)
+	whereClause := fmt.Sprintf("WHERE shard_id = %s AND lease_timeout >= %s", nextVal(&i), nextVal(&i))
+	params := []string{shard.ID, leaseTimeoutString}
 
 	checkPointRow := &models.Checkpoint{
 		ShardID:        shard.ID,
@@ -183,9 +186,10 @@ func (checkpointer *PostgresCheckpoint) ClaimShard(shard *par.ShardStatus, claim
 		LeaseTimeout:   &shard.LeaseTimeout,
 	}
 	if leaseOwner := shard.GetLeaseOwner(); leaseOwner == "" {
-		conditionalExpression += "AND (lease_owner is null or lease_owner = '')"
+		whereClause += "AND (lease_owner is null or lease_owner = '')"
 	} else {
-		conditionalExpression += fmt.Sprintf("and lease_owner = %s", shard.GetLeaseOwner())
+		whereClause += fmt.Sprintf("and lease_owner = %s", nextVal(&i))
+		params = append(params, shard.GetLeaseOwner())
 	}
 
 	// TODO: Not sure what should be the quivalent to 'Checkpoint' as an attribute as no such columns exists
@@ -200,11 +204,12 @@ func (checkpointer *PostgresCheckpoint) ClaimShard(shard *par.ShardStatus, claim
 	// }
 
 	if shard.ParentShardId == "" {
-		conditionalExpression += fmt.Sprintf("and parent_id != %s", shard.ParentShardId)
+		whereClause += fmt.Sprintf("and parent_id != %s", nextVal(&i))
+		params = append(params, shard.ParentShardId)
 	} else {
-		conditionalExpression += "AND (parent_id is null or parent_id = '')"
+		whereClause += "AND (parent_id is null or parent_id = '')"
 	}
-	return checkpointer.Datastore.UpdateCheckpoint(checkPointRow, &conditionalExpression)
+	return checkpointer.Datastore.UpdateCheckpoint(checkPointRow, &whereClause, params)
 }
 
 func (checkpointer *PostgresCheckpoint) syncLeases(shardStatus map[string]*par.ShardStatus) error {
@@ -256,4 +261,9 @@ func NewPostgresCheckpoint(kclConfig *config.KinesisClientLibConfiguration, db d
 
 func (c *PostgresCheckpoint) Init() error {
 	return nil
+}
+
+func nextVal(i *int) string {
+	*i += 1
+	return fmt.Sprintf("%s%d", "$", *i)
 }

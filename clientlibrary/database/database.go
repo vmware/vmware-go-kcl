@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	"github.com/vmware/vmware-go-kcl/clientlibrary/database/models"
 )
@@ -22,13 +21,5 @@ type ConsumerDatastore interface {
 	RemoveCheckpoint(shardID, streamName string) error
 	UnassignCheckpointLease(shardID, streamName string) error
 	GetCheckpoints() ([]*models.Checkpoint, error)
-	UpdateCheckpoint(cp *models.Checkpoint, whereClause *string) error
-}
-type Config struct {
-	DSN            string
-	ServiceName    string
-	ServiceVersion string
-	MaxIdleConns   int
-	MaxOpenConns   int
-	QueryTimeout   time.Duration
+	UpdateCheckpoint(cp *models.Checkpoint, whereClause *string, whereClauseParams []string) error
 }
